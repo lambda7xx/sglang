@@ -130,6 +130,7 @@ class SglFunction:
         assert argspec.args[0] == "s", 'The first argument must be "s"'
         self.arg_names = argspec.args[1:]
         self.arg_defaults = argspec.defaults if argspec.defaults is not None else []
+        print(f"1 python/sglang/lang/ir.py init, the self.arg_names :{self.arg_names } and self.arg_defaults:********{self.arg_defaults}******" )
 
     def bind(self, **kwargs):
         assert all(key in self.arg_names for key in kwargs)
@@ -196,10 +197,15 @@ class SglFunction:
         progress_bar: bool = False,
     ):
         from sglang.lang.interpreter import run_program_batch
-
+        print(f"1 python/sglang/lang/ir.py run_batch: type(batch_kwargs):{type(batch_kwargs)} and batch_kwargs:{batch_kwargs} ")
+        print(f"2 python/sglang/lang/ir.py run_batch: temperature:{temperature}")
+        print(f"3 python/sglang/lang/ir.py run_batch: frequency_penalty:{frequency_penalty}")
+        print(f"4 python/sglang/lang/ir.py run_batch: return_logprob:{return_logprob}")
+        print(f"5 python/sglang/lang/ir.py run_batch: len(atch_kwargs):{len(batch_kwargs)}")
         assert isinstance(batch_kwargs, (list, tuple))
         if len(batch_kwargs) == 0:
             return []
+        print(f"6 python/sglang/lang/ir.py run_batch: type(atch_kwargs[0]):{type(atch_kwargs[0])}")
         if not isinstance(batch_kwargs[0], dict):
             num_programs = len(batch_kwargs)
             # change the list of argument values to dict of arg_name -> arg_value
@@ -211,6 +217,7 @@ class SglFunction:
                 <= len(arg_values)
                 <= len(self.arg_names)
             ]
+            print(f"7 python/sglang/lang/ir.py run_batch: batch_kwargs:{batch_kwargs} and num_programs:{num_programs}")
             # Ensure to raise an exception if the number of arguments mismatch
             if len(batch_kwargs) != num_programs:
                 raise Exception("Given arguments mismatch the SGL function signature")
@@ -413,6 +420,7 @@ class SglGen(SglExpr):
         """Call the model to generate. See the meaning of the arguments in docs/sampling_params.md"""
         super().__init__()
         self.name = name
+        print(f"1 SglGen init, the name:{name}")
         self.sampling_params = SglSamplingParams(
             max_new_tokens=max_new_tokens,
             stop=stop,

@@ -38,6 +38,7 @@ class LlamaMLP(nn.Module):
         prefix: str = "",
     ) -> None:
         super().__init__()
+        print(f"1 LlamaMLP init, hidden_size: {hidden_size}, intermediate_size: {intermediate_size}, hidden_act: {hidden_act}")
         self.gate_up_proj = MergedColumnParallelLinear(
             hidden_size,
             [intermediate_size] * 2,

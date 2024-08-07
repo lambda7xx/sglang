@@ -55,11 +55,21 @@ def run_internal(state, program, func_args, func_kwargs, sync):
 
 def run_program(
     program, backend, func_args, func_kwargs, default_sampling_para, stream, sync=False
-):
+):  
+    print(f"0 python/sglang/lang/interpreter.py run_program: backend:{backend}")
+    print(f"0.5 python/sglang/lang/interpreter.py run_program: program:{program}")
+    print(f"1 python/sglang/lang/interpreter.py run_program: func_args:{func_args}")
+    print(f"2 python/sglang/lang/interpreter.py run_program: func_kwargs:{func_kwargs}")
+    print(f"3 python/sglang/lang/interpreter.py run_program: default_sampling_para:{default_sampling_para}")
+    print(f"4 python/sglang/lang/interpreter.py run_program: stream:{stream}")
     if hasattr(backend, "endpoint"):
         backend = backend.endpoint
+        print(f"5 python/sglang/lang/interpreter.py run_program: backend has endpoint")
     assert backend is not None, "Please specify a backend"
+    print(f"6 python/sglang/lang/interpreter.py run_program: program.bind_arguments:{program.bind_arguments}")
     func_kwargs.update(program.bind_arguments)
+    # print(f"6 python/sglang/lang/interpreter.py run_program:")
+    # print(f"6 python/sglang/lang/interpreter.py run_program:")
     stream_executor = StreamExecutor(
         backend,
         func_kwargs,
@@ -71,12 +81,14 @@ def run_program(
     state = ProgramState(stream_executor)
 
     if stream:
+        print(f"7 python/sglang/lang/interpreter.py run_program: stream is true")
         t = threading.Thread(
             target=run_internal, args=(state, program, func_args, func_kwargs, sync)
         )
         t.start()
         return state
     else:
+        print(f"8 python/sglang/lang/interpreter.py run_program: stream is false")
         run_internal(state, program, func_args, func_kwargs, sync)
         return state
 
@@ -93,18 +105,21 @@ def run_program_batch(
         backend = backend.endpoint
 
     # Pre-cache the common prefix for a batch. The prefix is extracted by tracing the program.
+    print(f"1 python/sglang/lang/interpreter.py run_program_batch: len(batch_arguments):{len(batch_arguments)}")
     if global_config.enable_precache_with_tracing and len(batch_arguments) > 1:
+        print(f"1.5 python/sglang/lang/interpreter.py run_program_batch: cache_program")
         cache_program(program, backend)
-
     # Run all programs
     if num_threads == "auto":
         num_threads = max(96, multiprocessing.cpu_count() * 16)
     num_threads = min(num_threads, len(batch_arguments))
+    print(f"2 python/sglang/lang/interpreter.py run_program_batch: num_threads:{num_threads} and progress_bar:{progress_bar}")
 
     if num_threads == 1:
         rets = []
         if progress_bar:
             for arguments in tqdm.tqdm(batch_arguments):
+                print(f"3 python/sglang/lang/interpreter.py run_program_batch: arguments:{arguments}")
                 rets.append(
                     run_program(
                         program,
@@ -118,6 +133,7 @@ def run_program_batch(
                 )
         else:
             for arguments in batch_arguments:
+                print(f"4 python/sglang/lang/interpreter.py run_program_batch: arguments:{arguments}")
                 rets.append(
                     run_program(
                         program,
@@ -136,6 +152,7 @@ def run_program_batch(
         with ThreadPoolExecutor(num_threads) as executor:
             futures = []
             for arguments in batch_arguments:
+                print(f"5 python/sglang/lang/interpreter.py run_program_batch: arguments:{arguments}")
                 futures.append(
                     executor.submit(
                         run_program,

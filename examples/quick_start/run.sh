@@ -1,0 +1,1 @@
+python3 srt_example_chat.py  > srt_example_chat.log 2>&1 

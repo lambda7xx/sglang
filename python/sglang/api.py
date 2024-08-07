@@ -21,7 +21,8 @@ from sglang.lang.ir import (
 
 def function(
     func: Optional[Callable] = None, num_api_spec_tokens: Optional[int] = None
-):
+):  
+    print(f"1 api.py function: func:{func}")
     if func:
         return SglFunction(func, num_api_spec_tokens=num_api_spec_tokens)
 
@@ -76,6 +77,8 @@ def gen(
     regex: Optional[str] = None,
 ):
     """Call the model to generate. See the meaning of the arguments in docs/sampling_params.md"""
+
+    print(f"1 api.py: name:{name} and choice:{choices} and regex:{regex}")
 
     if choices:
         return SglSelect(name, choices, 0.0 if temperature is None else temperature)

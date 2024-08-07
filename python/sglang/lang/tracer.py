@@ -29,15 +29,19 @@ from sglang.lang.ir import (
 class StopTracing(Exception):
     pass
 
-
+#TODO(Xiao) 0807 this is very important
 def extract_prefix_by_tracing(program, backend):
     # Create dummy arguments
+    print(f"0 python/sglang/lang/tracer.py extract_prefix_by_tracing: type(program):{type(program)}")
+    for name in program.arg_names:
+        print(f"1 python/sglang/lang/tracer.py extract_prefix_by_tracing: the name:{name}")
     dummy_arguments = {name: SglArgument(name, None) for name in program.arg_names}
     arguments = dummy_arguments
+    print(f"2 python/sglang/lang/tracer.py extract_prefix_by_tracing: type(arguments):{type(arguments)} program.bind_arguments:{program.bind_arguments}")
     arguments.update(program.bind_arguments)
 
     # Trace
-    tracer = TracerProgramState(backend, arguments, only_trace_prefix=True)
+    tracer = TracerProgramState(backend, arguments, only_trace_prefix=True) #TODO(Xiao) 0807 this is very important
     try:
         with TracingScope(tracer):
             tracer.ret_value = program.func(tracer, **arguments)
@@ -52,6 +56,7 @@ def extract_prefix_by_tracing(program, backend):
             prefix += expr.value
         else:
             break
+    print(f"3 python/sglang/lang/tracer.py extract_prefix_by_tracing: type(arguments), prefix:{prefix}")
     return prefix
 
 

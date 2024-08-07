@@ -8,6 +8,8 @@ import sglang as sgl
 
 @sgl.function
 def multi_turn_question(s, question_1, question_2):
+    print(f"question_1:{question_1} and question_2:{question_2}")
+    
     s += sgl.user(question_1)
     s += sgl.assistant(sgl.gen("answer_1", max_tokens=256))
     s += sgl.user(question_2)
@@ -53,20 +55,21 @@ def batch():
     )
 
     for s in states:
-        print(s.messages())
+        print(f"s.messages():{s.messages()}")
 
 
 if __name__ == "__main__":
-    runtime = sgl.Runtime(model_path="meta-llama/Llama-2-7b-chat-hf")
+    model_path = "/data/llama3/Meta-Llama-3-8B-Instruct-hf"
+    runtime = sgl.Runtime(model_path=model_path)
     sgl.set_default_backend(runtime)
 
     # Run a single request
-    print("\n========== single ==========\n")
-    single()
+    # print("\n========== single ==========\n")
+    # single()
 
-    # Stream output
-    print("\n========== stream ==========\n")
-    stream()
+    # # Stream output
+    # print("\n========== stream ==========\n")
+    # stream()
 
     # Run a batch of requests
     print("\n========== batch ==========\n")
