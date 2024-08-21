@@ -36,7 +36,7 @@ def Runtime(*args, **kwargs):
     # Avoid importing unnecessary dependency
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
     from sglang.srt.server import Runtime
-
+    print(f"1 api.py Runtime: args:{args} and kwargs:{kwargs}")
     return Runtime(*args, **kwargs)
 
 
@@ -78,7 +78,7 @@ def gen(
 ):
     """Call the model to generate. See the meaning of the arguments in docs/sampling_params.md"""
 
-    print(f"1 api.py: name:{name} and choice:{choices} and regex:{regex}")
+    print(f"1 api.py gen: name:{name} and choice:{choices} and regex:{regex}")
 
     if choices:
         return SglSelect(name, choices, 0.0 if temperature is None else temperature)
@@ -195,6 +195,8 @@ def select(
 
 
 def _role_common(name: str, expr: Optional[SglExpr] = None):
+    print(f"1 api.py _role_common: name:{name} and expr:{expr}")
+    print(f"2 api.py _role_common: type(expr):{type(expr)}")
     if expr is None:
         return SglExprList([SglRoleBegin(name), SglRoleEnd(name)])
     else:
@@ -206,10 +208,12 @@ def system(expr: Optional[SglExpr] = None):
 
 
 def user(expr: Optional[SglExpr] = None):
+    print(f"1 api.py user: expr:{expr} and type(expr):{type(expr)}")
     return _role_common("user", expr)
 
 
 def assistant(expr: Optional[SglExpr] = None):
+    print(f"1 api.py assistant: expr:{expr}")
     return _role_common("assistant", expr)
 
 

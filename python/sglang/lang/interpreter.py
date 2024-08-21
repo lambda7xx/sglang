@@ -39,8 +39,15 @@ from sglang.utils import (
 
 
 def run_internal(state, program, func_args, func_kwargs, sync):
+    print(f"1 python/sglang/lang/interpreter.py,run_internal  type(state):{type(state)}")
+    print(f"2 python/sglang/lang/interpreter.py,run_internal type(program.func):{type(program.func)}")
+    print(f"3 python/sglang/lang/interpreter.py,run_internal func_args:{func_args}")
+    print(f"4 python/sglang/lang/interpreter.py,run_internal func_kwargs:{func_kwargs}")
+    print(f"5 python/sglang/lang/interpreter.py,run_internal program.func:{program.func}")
+    print(f"6 python/sglang/lang/interpreter.py,run_internal type(program):{type(program)}")
     try:
         state.ret_value = program.func(state, *func_args, **func_kwargs)
+        print(f"7 python/sglang/lang/interpreter.py,run_internal state.ret_value:{state.ret_value} and sync:{sync}")
     except Exception as e:
         raise e
     finally:
@@ -68,6 +75,7 @@ def run_program(
     assert backend is not None, "Please specify a backend"
     print(f"6 python/sglang/lang/interpreter.py run_program: program.bind_arguments:{program.bind_arguments}")
     func_kwargs.update(program.bind_arguments)
+    print(f"6.5 python/sglang/lang/interpreter.py run_program: type(program):{type(program)}")
     # print(f"6 python/sglang/lang/interpreter.py run_program:")
     # print(f"6 python/sglang/lang/interpreter.py run_program:")
     stream_executor = StreamExecutor(
@@ -232,6 +240,7 @@ class StreamExecutor:
 
         # Worker thread
         self.use_thread = use_thread
+        print(f"1 python/sglang/lang/interpreter.py StreamExecutor init: use_thread:{use_thread}")
         if self.use_thread:
             self.queue = queue.Queue()
 
@@ -252,6 +261,7 @@ class StreamExecutor:
             self.stream_var_event = None
 
     def submit(self, expr: SglExpr):
+        print(f"1 python/sglang/lang/interpreter.py StreamExecutor submit, self.use_thread:{self.use_thread} and expr:{expr}")
         self._init_var_event(expr)
 
         if self.use_thread:
@@ -260,6 +270,7 @@ class StreamExecutor:
             self._execute(expr)
 
     def sync(self):
+        print(f"1 python/sglang/lang/interpreter.py StreamExecutor sync, self.use_thread:{self.use_thread}")
         if self.use_thread:
             self.queue.join()
 
@@ -326,6 +337,7 @@ class StreamExecutor:
         return self.error_
 
     def end(self):
+        print(f"1 python/sglang/lang/interpreter.py StreamExecutor end, self.use_thread:{self.use_thread} and len(self.queue):{self.queue.qsize()}")
         if self.use_thread:
             if self.worker.is_alive():
                 self.queue.put(None)
@@ -341,6 +353,7 @@ class StreamExecutor:
                 break
 
             try:
+                print(f"1 python/sglang/lang/interpreter.py StreamExecutor _thread_worker_func: expr is not None expr:{expr}")
                 self._execute(expr)
             except Exception as e:
                 warnings.warn(f"Error in stream_executor: {get_exception_traceback()}")
@@ -719,14 +732,17 @@ class ProgramState:
 
     def __init__(self, stream_executor: StreamExecutor):
         self.stream_executor = stream_executor
+        print(f"1 python/sglang/lang/interpreter.py ProgramState init: type(stream_executor):{type(stream_executor)}")
 
     def _role_common(self, name: str, expr: Optional[SglExpr] = None):
+        print(f"1 python/sglang/lang/interpreter.py ProgramState _role_common: name:{name} and expr:{expr}")
         if expr is not None:
+            print(f"2 python/sglang/lang/interpreter.py ProgramState _role_common: expr is not None")
             self.stream_executor.submit(
                 SglExprList([SglRoleBegin(name), expr, SglRoleEnd(name)])
             )
         else:
-
+            print(f"3 python/sglang/lang/interpreter.py ProgramState _role_common: expr is None")
             @contextmanager
             def role_scope():
                 self.stream_executor.submit(SglRoleBegin(name))
@@ -736,16 +752,20 @@ class ProgramState:
             return role_scope()
 
     def system(self, expr: Optional[SglExpr] = None):
+        print(f"1 python/sglang/lang/interpreter.py ProgramState system: expr:{expr}")
         return self._role_common("system", expr)
 
     def user(self, expr: Optional[SglExpr] = None):
+        print(f"1 python/sglang/lang/interpreter.py ProgramState user: expr:{expr}")
         return self._role_common("user", expr)
 
     def assistant(self, expr: Optional[SglExpr] = None):
+        print(f"1 python/sglang/lang/interpreter.py ProgramState assistant: expr:{expr}")
         return self._role_common("assistant", expr)
 
     @contextmanager
     def var_scope(self, name: str):
+        print(f"1 python/sglang/lang/interpreter.py ProgramState var_scope: name:{name}")
         self.stream_executor.submit(SglVarScopeBegin(name))
         yield
         self.stream_executor.submit(SglVarScopeEnd(name))
@@ -859,6 +879,7 @@ class ProgramState:
         return self.stream_executor.get_meta_info(name)
 
     def __iadd__(self, other):
+        print(f"1 python/sglang/lang/interpreter.py ProgramState __iadd__ type(other):{type(other)}")
         self.stream_executor.submit(other)
         return self
 

@@ -8,13 +8,16 @@ import sglang as sgl
 
 @sgl.function
 def multi_turn_question(s, question_1, question_2):
-    print(f"question_1:{question_1} and question_2:{question_2}")
+    print(f"1 examples/quick_start/srt_example_chat.py question_1:{question_1} and question_2:{question_2} and type(s):{type(s)}")
     
     s += sgl.user(question_1)
+    print(f"2 examples/quick_start/srt_example_chat.py, s:{s}:type(s):{type(s)}")
     s += sgl.assistant(sgl.gen("answer_1", max_tokens=256))
+    print(f"3 examples/quick_start/srt_example_chat.py, s:{s}")
     s += sgl.user(question_2)
+    print(f"4 examples/quick_start/srt_example_chat.py, s:{s}")
     s += sgl.assistant(sgl.gen("answer_2", max_tokens=256))
-
+    print(f"5 examples/quick_start/srt_example_chat.py, s:{s}")
 
 def single():
     state = multi_turn_question.run(

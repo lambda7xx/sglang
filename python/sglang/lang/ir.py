@@ -174,6 +174,7 @@ class SglFunction:
             return_text_in_logprobs=return_text_in_logprobs,
         )
         backend = backend or global_config.default_backend
+        print(f"2 python/sglang/lang/ir.py run: backend:{backend}")
         return run_program(self, backend, args, kwargs, default_sampling_para, stream)
 
     def run_batch(
@@ -205,7 +206,7 @@ class SglFunction:
         assert isinstance(batch_kwargs, (list, tuple))
         if len(batch_kwargs) == 0:
             return []
-        print(f"6 python/sglang/lang/ir.py run_batch: type(atch_kwargs[0]):{type(atch_kwargs[0])}")
+        print(f"6 python/sglang/lang/ir.py run_batch: type(atch_kwargs[0]):{type(batch_kwargs[0])}")
         if not isinstance(batch_kwargs[0], dict):
             num_programs = len(batch_kwargs)
             # change the list of argument values to dict of arg_name -> arg_value
@@ -237,6 +238,7 @@ class SglFunction:
             return_text_in_logprobs=return_text_in_logprobs,
         )
         backend = backend or global_config.default_backend
+        print(f"8 python/sglang/lang/ir.py run_batch: backend:{backend}")
         return run_program_batch(
             self,
             backend,
@@ -267,6 +269,8 @@ class SglFunction:
         from sglang.lang.tracer import TracingScope
 
         tracing_scope = TracingScope.get_current_scope()
+        print(f"1 python/sglang/lang/ir.py __call__: type(tracing_scope):{type(tracing_scope)} and tracing_scope:{tracing_scope}")
+        print(f"2 python/sglang/lang/ir.py __call__: args:{args} and kwargs:{kwargs}")
         if tracing_scope is None:
             return self.run(*args, **kwargs)
         else:
@@ -420,7 +424,7 @@ class SglGen(SglExpr):
         """Call the model to generate. See the meaning of the arguments in docs/sampling_params.md"""
         super().__init__()
         self.name = name
-        print(f"1 SglGen init, the name:{name}")
+        print(f"1 /home/xiaoxias/sglang/python/sglang/lang/ir.py SglGen init, the name:{name}")
         self.sampling_params = SglSamplingParams(
             max_new_tokens=max_new_tokens,
             stop=stop,

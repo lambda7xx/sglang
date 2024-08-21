@@ -124,12 +124,14 @@ def start_controller_process(
         level=getattr(logging, server_args.log_level.upper()),
         format="%(message)s",
     )
-
+    print(f"1 python/sglang/srt/managers/controller/manager_single.py start_controller_process, is_data_parallel_worker:{is_data_parallel_worker}")
+    
     if not is_data_parallel_worker:
         tp_size_local = server_args.tp_size // server_args.nnodes
         gpu_ids = [i for _ in range(server_args.nnodes) for i in range(tp_size_local)]
         dp_worker_id = 0
         queue = None
+        print(f"2 python/sglang/srt/managers/controller/manager_single.py start_controller_process,  tp_size_local:{tp_size_local} and gpu_ids:{gpu_ids} and dp_worker_id:{dp_worker_id} and queue:{queue}")
 
     try:
         controller = ControllerSingle(

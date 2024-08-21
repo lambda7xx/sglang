@@ -190,6 +190,9 @@ def launch_server(
     os.environ["NCCL_NVLS_ENABLE"] = "0"
     os.environ["TORCH_NCCL_AVOID_RECORD_STREAMS"] = "1"
     set_ulimit()
+    print(f"1 server.py launch_server : server_args:{server_args.show_time_cost}")
+    print(f"2 server.py launch_server : server_args:{server_args.disable_disk_cache}")
+    print(f"3 server.py launch_server : server_args:{server_args.disable_flashinfer}")
     if server_args.show_time_cost:
         enable_show_time_cost()
     if server_args.disable_disk_cache:
@@ -202,6 +205,7 @@ def launch_server(
             "reinstall the latest version by following the instructions "
             "at https://docs.flashinfer.ai/installation.html.",
         )
+    print(f"4 server.py launch_server : erver_args.tp_size * server_args.dp_size:{server_args.tp_size * server_args.dp_size}")
     if server_args.tp_size * server_args.dp_size > 1:
         # FIXME: remove this after https://github.com/triton-lang/triton/pull/4295 is used as a dependency.
         maybe_set_triton_cache_manager()
@@ -220,6 +224,7 @@ def launch_server(
         server_args.dp_size,
     )
     ports = server_args.additional_ports
+    print(f"4 server.py launch_server : tokenizer_port:{ports[0]} and controller_port:{ports[1]} and detokenizer_port:{ports[2]} and nccl_ports:{ports[3:]}")
     port_args = PortArgs(
         tokenizer_port=ports[0],
         controller_port=ports[1],
@@ -229,6 +234,8 @@ def launch_server(
     logger.info(f"{server_args=}")
 
     # Handle multi-node tensor parallelism
+    print(f"5 server.py launch_server : server_args:{server_args.nnodes}")
+    #todo(xiao) 0820: this is very important
     if server_args.nnodes > 1:
         assert server_args.dp_size == 1, "Multi-node dp is not supported."
 
@@ -257,10 +264,12 @@ def launch_server(
     tokenizer_manager = TokenizerManager(server_args, port_args, model_overide_args)
     pipe_controller_reader, pipe_controller_writer = mp.Pipe(duplex=False)
     pipe_detoken_reader, pipe_detoken_writer = mp.Pipe(duplex=False)
-
+    
     if server_args.dp_size == 1:
+        print(f"5 server.py launch_server : server_args.dp_size == 1 and  start_process is start_controller_process_single")
         start_process = start_controller_process_single
     else:
+        print(f"6 server.py launch_server : server_args.dp_size != 1 and  start_process is start_controller_process_multi")
         start_process = start_controller_process_multi
     proc_controller = mp.Process(
         target=start_process,
@@ -375,8 +384,11 @@ class Runtime:
         **kwargs,
     ):
         """See the arguments in server_args.py::ServerArgs"""
+        print(f"1 server.py Runtime init : args:{args} and kwargs:{kwargs}")
         self.server_args = ServerArgs(*args, log_level=log_level, **kwargs)
-
+        print(f"2 server.py Runtime init : self.server_args.port:{self.server_args.port}")
+        print(f"3 server.py Runtime init : self.server_args.additional_ports:{self.server_args.additional_ports}")
+        print(f"4 server.py Runtime init : self.server_args.dp_size:{self.server_args.dp_size}")
         # Pre-allocate ports
         self.server_args.port, self.server_args.additional_ports = allocate_init_ports(
             self.server_args.port,
@@ -388,7 +400,7 @@ class Runtime:
         self.generate_url = (
             f"http://{self.server_args.host}:{self.server_args.port}/generate"
         )
-
+        print(f"5 server.py Runtime init : self.generate_url:{self.generate_url}")
         self.pid = None
         pipe_reader, pipe_writer = mp.Pipe(duplex=False)
         proc = mp.Process(
