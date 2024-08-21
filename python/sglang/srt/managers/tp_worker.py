@@ -86,6 +86,11 @@ class ModelTpServer:
         self.dp_size = server_args.dp_size
         self.schedule_policy = server_args.schedule_policy
         self.disable_regex_jump_forward = server_args.disable_regex_jump_forward
+        print(f"1 python/sglang/srt/managers/tp_worker.py __init__:  self.tp_rank:{self.tp_rank} and self.gpu_id:{self.gpu_id}")
+        print(f"2 python/sglang/srt/managers/tp_worker.py __init__:  self.tp_rank:{self.tp_rank} and self.tp_size:{self.tp_size}")
+        print(f"3 python/sglang/srt/managers/tp_worker.py __init__:  self.tp_rank:{self.tp_rank} and self.dp_size:{self.dp_size}")
+        print(f"4 python/sglang/srt/managers/tp_worker.py __init__:  self.tp_rank:{self.tp_rank} and self.schedule_policy:{self.schedule_policy}")
+        print(f"5 python/sglang/srt/managers/tp_worker.py __init__:  self.tp_rank:{self.tp_rank} and self.disable_regex_jump_forward:{self.disable_regex_jump_forward}")
 
         # Init model and tokenizer
         self.model_config = ModelConfig(
@@ -103,10 +108,12 @@ class ModelTpServer:
             nccl_port=nccl_port,
             server_args=server_args,
         )
+        print(f"6 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and server_args.skip_tokenizer_init:{server_args.skip_tokenizer_init}")
         if server_args.skip_tokenizer_init:
             self.tokenizer = self.processor = None
         else:
             if is_multimodal_model(server_args.model_path):
+                print(f"7 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} is_multimodal_model(server_args.model_path)")
                 self.processor = get_processor(
                     server_args.tokenizer_path,
                     tokenizer_mode=server_args.tokenizer_mode,
@@ -114,11 +121,14 @@ class ModelTpServer:
                 )
                 self.tokenizer = self.processor.tokenizer
             else:
+                print(f"8 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} not is_multimodal_model(server_args.model_path)")
                 self.tokenizer = get_tokenizer(
                     server_args.tokenizer_path,
                     tokenizer_mode=server_args.tokenizer_mode,
                     trust_remote_code=server_args.trust_remote_code,
                 )
+        print(f"9 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.max_total_num_tokens:{self.model_runner.max_total_num_tokens}")
+        print(f"10 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.max_prefill_tokens:{server_args.max_prefill_tokens}")
         self.max_total_num_tokens = self.model_runner.max_total_num_tokens
         self.max_prefill_tokens = server_args.max_prefill_tokens
         self.max_running_requests = min(
@@ -129,10 +139,12 @@ class ModelTpServer:
             ),
             self.model_runner.req_to_token_pool.size - 1,
         )
+        print(f"11 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.max_running_requests:{self.max_running_requests}")
         self.max_req_input_len = min(
             self.model_config.context_len - 1,
             self.max_total_num_tokens - 1,
         )
+        print(f"12 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.max_req_input_len:{self.max_req_input_len}")
 
         # Sync random seed
         server_args.random_seed = broadcast_recv_input(
@@ -156,17 +168,25 @@ class ModelTpServer:
             server_args.chunked_prefill_size is not None
             and server_args.disable_radix_cache
         ):
+            print(f"13 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and use chunk cache")
+            print(f"14 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and server_args.chunked_prefill_size:{server_args.chunked_prefill_size}")
+            #xiao 0821 这里是初始化chunk cache 很重要
             self.tree_cache = ChunkCache(
                 req_to_token_pool=self.model_runner.req_to_token_pool,
                 token_to_kv_pool=self.model_runner.token_to_kv_pool,
             )
         else:
+            #xiao 0821 这里是初始化radix cache 很重要
+            print(f"15 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and use radix cache ")
+            print(f"16 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and server_args.disable_radix_cache:{server_args.disable_radix_cache}")
             self.tree_cache = RadixCache(
                 req_to_token_pool=self.model_runner.req_to_token_pool,
                 token_to_kv_pool=self.model_runner.token_to_kv_pool,
                 disable=server_args.disable_radix_cache,
             )
         self.tree_cache_metrics = {"total": 0, "hit": 0}
+        print(f"17 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.tree_cache_metrics:{self.tree_cache_metrics}")
+        #xiao 0821 这个scheduler 很重要
         self.scheduler = PolicyScheduler(self.schedule_policy, self.tree_cache)
         self.req_to_token_pool = self.model_runner.req_to_token_pool
         self.token_to_kv_pool = self.model_runner.token_to_kv_pool
@@ -182,13 +202,16 @@ class ModelTpServer:
 
         # Chunked prefill
         self.chunked_prefill_size = server_args.chunked_prefill_size
+        print(f"18 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.chunked_prefill_size:{self.chunked_prefill_size}")
         self.current_inflight_req = None
         self.is_mixed_chunk = (
             self.chunked_prefill_size is not None and server_args.enable_mixed_chunk
         )
-
+        print(f"18  python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.is_mixed_chunk:{self.is_mixed_chunk}")
         # Init the FSM cache for constrained generation
+        print(f"19 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and server_args.skip_tokenizer_init:{server_args.skip_tokenizer_init}")
         if not server_args.skip_tokenizer_init:
+            #xiao 0821 这里是初始化FSM cache 很重要
             self.regex_fsm_cache = FSMCache(
                 server_args.tokenizer_path,
                 {
@@ -197,6 +220,7 @@ class ModelTpServer:
                 },
                 skip_tokenizer_init=server_args.skip_tokenizer_init,
             )
+        #xiao 0821 这里是初始化jump forward cache 很重要
         self.jump_forward_cache = JumpForwardCache()
 
         # Init new token estimation
@@ -208,6 +232,7 @@ class ModelTpServer:
             * server_args.schedule_conservativeness,
             1.0,
         )
+        print(f"20 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.min_new_token_ratio:{self.min_new_token_ratio}")
         self.new_token_ratio = self.min_new_token_ratio
         self.new_token_ratio_decay = global_config.new_token_ratio_decay
 

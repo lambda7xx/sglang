@@ -53,12 +53,14 @@ class DetokenizerManager:
         port_args: PortArgs,
     ):
         context = zmq.asyncio.Context(2)
-        self.recv_from_router = context.socket(zmq.PULL)
+        self.recv_from_router = context.socket(zmq.PULL) #PULL 套接字用于从连接到它的 PUSH 套接字中接收消息
+        print(f"1 python/sglang/srt/managers/detokenizer_manager.py __init__: port_args.detokenizer_port:{port_args.detokenizer_port}")
         self.recv_from_router.bind(f"tcp://127.0.0.1:{port_args.detokenizer_port}")
 
-        self.send_to_tokenizer = context.socket(zmq.PUSH)
+        self.send_to_tokenizer = context.socket(zmq.PUSH) #PUSH 套接字用于向连接到它的 PULL 套接字发送消息
+        print(f"2 python/sglang/srt/managers/detokenizer_manager.py __init__: port_args.tokenizer_port:{port_args.tokenizer_port}")
         self.send_to_tokenizer.connect(f"tcp://127.0.0.1:{port_args.tokenizer_port}")
-
+        print(f"3 python/sglang/srt/managers/detokenizer_manager.py __init__: server_args.skip_tokenizer_init:{server_args.skip_tokenizer_init}")
         if server_args.skip_tokenizer_init:
             self.tokenizer = None
         else:
@@ -73,7 +75,7 @@ class DetokenizerManager:
     async def handle_loop(self):
         while True:
             recv_obj: BatchTokenIDOut = await self.recv_from_router.recv_pyobj()
-
+            print(f"1 python/sglang/srt/managers/detokenizer_manager.py handle_loop: recv_obj:{type(recv_obj)}")
             if isinstance(recv_obj, BatchEmbeddingOut):
                 self.send_to_tokenizer.send_pyobj(
                     BatchEmbeddingOut(
@@ -91,7 +93,7 @@ class DetokenizerManager:
 
             assert isinstance(recv_obj, BatchTokenIDOut)
             bs = len(recv_obj.rids)
-
+            print(f"2 python/sglang/srt/managers/detokenizer_manager.py handle_loop: bs:{bs} and self.tokenizer is None:{self.tokenizer is None}")
             if self.tokenizer is None:
                 # Send BatchTokenIDOut if no tokenizer init'ed.
                 self.send_to_tokenizer.send_pyobj(recv_obj)
@@ -102,7 +104,9 @@ class DetokenizerManager:
             for i in range(bs):
                 rid = recv_obj.rids[i]
                 vid = recv_obj.vids[i]
+                print(f"3 python/sglang/srt/managers/detokenizer_manager.py handle_loop: rid:{rid} and vid:{vid}")
                 if rid not in self.decode_status or self.decode_status[rid].vid != vid:
+                    print(f"4 python/sglang/srt/managers/detokenizer_manager.py handle_loop: rid not in self.decode_status or self.decode_status[rid].vid != vid")
                     s = DecodeStatus(
                         vid=vid,
                         decoded_text=recv_obj.decoded_texts[i],
@@ -112,6 +116,7 @@ class DetokenizerManager:
                     )
                     self.decode_status[rid] = s
                 else:
+                    print(f"5 python/sglang/srt/managers/detokenizer_manager.py handle_loop: rid in self.decode_status and self.decode_status[rid].vid == vid")
                     s = self.decode_status[rid]
                     s.decode_ids = recv_obj.decode_ids[i]
 

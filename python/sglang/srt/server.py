@@ -279,14 +279,16 @@ def launch_server(
 
     server_args.check_server_args()
     _set_envs_and_config(server_args)
-
+    #print(f"1 python/sglang/srt/server.py launch_server: server_args {server_args}")
     # Allocate ports
     server_args.port, server_args.additional_ports = allocate_init_ports(
         server_args.port,
         server_args.additional_ports,
         server_args.dp_size,
     )
+    
     ports = server_args.additional_ports
+    print(f"1 python/sglang/srt/server.py launch_server: tokenizer_port: {ports[0]}, controller_port: {ports[1]}, detokenizer_port: {ports[2]}, nccl_ports: {ports[3:]}")
     port_args = PortArgs(
         tokenizer_port=ports[0],
         controller_port=ports[1],
@@ -298,8 +300,10 @@ def launch_server(
     # Use model from www.modelscope.cn, first download the model.
     server_args.model_path = prepare_model(server_args.model_path)
     server_args.tokenizer_path = prepare_tokenizer(server_args.tokenizer_path)
-
+    print(f"2 python/sglang/srt/server.py launch_server: server_args.model_path {server_args.model_path}, server_args.tokenizer_path {server_args.tokenizer_path}")
+    print(f"3 python/sglang/srt/server.py launch_server: server_args.nnodes:{server_args.nnodes}, server_args.node_rank:{server_args.node_rank}, server_args.tp_size:{server_args.tp_size}, server_args.dp_size:{server_args.dp_size}")
     # Launch processes for multi-node tensor parallelism
+    #xiao 0821: 以后多节点启动看这个
     if server_args.nnodes > 1 and server_args.node_rank != 0:
         tp_size_local = server_args.tp_size // server_args.nnodes
         gpu_ids = [i for _ in range(server_args.nnodes) for i in range(tp_size_local)]
@@ -330,10 +334,12 @@ def launch_server(
         load_chat_template_for_openai_api(tokenizer_manager, server_args.chat_template)
     pipe_controller_reader, pipe_controller_writer = mp.Pipe(duplex=False)
     pipe_detoken_reader, pipe_detoken_writer = mp.Pipe(duplex=False)
-
+    #print(f"2 python/sglang/srt/server.py launch_server:erver_args.dp_size ")
     if server_args.dp_size == 1:
+        print(f"2 python/sglang/srt/server.py launch_server: start_controller_process_single")
         start_process = start_controller_process_single
     else:
+        print(f"3 python/sglang/srt/server.py launch_server: start_controller_process_multi")
         start_process = start_controller_process_multi
     proc_controller = mp.Process(
         target=start_process,
@@ -463,7 +469,9 @@ def _wait_and_warmup(server_args, pipe_finish_writer, pid):
         json_data["input_ids"] = [10, 11, 12]
     else:
         json_data["text"] = "The capital city of France is"
-
+    print(f"1 python/sglang/srt/server.py _wait_and_warmup: url + request_name {url + request_name}")
+    print(f"2 python/sglang/srt/server.py _wait_and_warmup: json_data {json_data}")
+    print(f"3 python/sglang/srt/server.py _wait_and_warmup: server_args.dp_size:{server_args.dp_size}")
     try:
         for _ in range(server_args.dp_size):
             res = requests.post(
@@ -502,7 +510,7 @@ class Runtime:
     ):
         """See the arguments in server_args.py::ServerArgs"""
         self.server_args = ServerArgs(*args, log_level=log_level, **kwargs)
-
+        #print(f"1 python/sglang/srt/server.py Runtime __init__ {self.server")
         # Pre-allocate ports
         self.server_args.port, self.server_args.additional_ports = allocate_init_ports(
             self.server_args.port,
@@ -514,7 +522,7 @@ class Runtime:
         self.generate_url = (
             f"http://{self.server_args.host}:{self.server_args.port}/generate"
         )
-
+        print(f"1 python/sglang/srt/server.py Runtime __init__: self.generate_url {self.generate_url}")
         self.pid = None
         pipe_reader, pipe_writer = mp.Pipe(duplex=False)
         proc = mp.Process(

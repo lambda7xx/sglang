@@ -54,14 +54,15 @@ class ControllerSingle:
         self.mp_queue = mp_queue
 
         # Init communication
-        context = zmq.Context(2)
-
+        context = zmq.Context(2) #xiao 0821 这个很重要
+        print(f"1 python/sglang/srt/managers/controller_single.py __init__: not self.is_dp_worker:{not self.is_dp_worker}")
+        print(f"2 python/sglang/srt/managers/controller_single.py __init__: port_args.controller_port:{port_args.controller_port}")
         if not self.is_dp_worker:
             self.recv_from_tokenizer = context.socket(zmq.PULL)
             self.recv_from_tokenizer.bind(
                 f"tcp://127.0.0.1:{port_args.controller_port}"
             )
-
+        print(f"3 python/sglang/srt/managers/controller_single.py __init__: port_args.detokenizer_port:{port_args.detokenizer_port}")
         self.send_to_detokenizer = context.socket(zmq.PUSH)
         self.send_to_detokenizer.connect(
             f"tcp://127.0.0.1:{port_args.detokenizer_port}"
@@ -69,8 +70,10 @@ class ControllerSingle:
 
         # Launch other tp ranks
         tp_size_local = server_args.tp_size // server_args.nnodes
+        print(f"4 python/sglang/srt/managers/controller_single.py __init__: tp_size_local:{tp_size_local}")
         self.tp_procs = []
         if tp_size_local > 1:
+            #xiao 0821 这里是启动多个tp server, 以后看
             tp_rank_range = range(1, tp_size_local)
             self.tp_procs = launch_tp_servers(
                 gpu_ids,
@@ -81,6 +84,7 @@ class ControllerSingle:
             )
 
         # Launch tp rank 0
+        #xiao: 0821 这里是启动一个tp server 很重要
         self.tp_server = ModelTpServer(
             gpu_ids[0],
             0,
@@ -89,9 +93,11 @@ class ControllerSingle:
             model_overide_args,
         )
         self.tp_cpu_group = self.tp_server.model_runner.tp_group.cpu_group
+        print(f"5 python/sglang/srt/managers/controller_single.py __init__: self.tp_cpu_group:{self.tp_cpu_group}")
 
     def loop_for_forward(self):
         while True:
+            print(f"1 python/sglang/srt/managers/controller_single.py loop_for_forward: not self.is_dp_worker:{not self.is_dp_worker}")
             if not self.is_dp_worker:
                 recv_reqs = self.recv_requests_from_zmq()
             else:
@@ -139,7 +145,9 @@ def start_controller_process(
         level=getattr(logging, server_args.log_level.upper()),
         format="%(message)s",
     )
-
+    print(f"1 python/sglang/srt/managers/controller_single.py start_controller_process: is_data_parallel_worker:{is_data_parallel_worker}")
+    print(f"2 python/sglang/srt/managers/controller_single.py start_controller_process: gpu_ids:{gpu_ids}")
+    print(f"3 python/sglang/srt/managers/controller_single.py start_controller_process: server_args.tp_size // server_args.nnodes:{server_args.tp_size // server_args.nnodes}")
     if not is_data_parallel_worker:
         tp_size_local = server_args.tp_size // server_args.nnodes
         gpu_ids = [i for _ in range(server_args.nnodes) for i in range(tp_size_local)]

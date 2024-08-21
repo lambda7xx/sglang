@@ -202,7 +202,7 @@ class StreamExecutor:
         self.chat_template = chat_template or self.backend.get_chat_template()
         self.cur_role = None
         self.cur_role_begin_pos = None
-
+        print(f"0.1 python/sglang/srt/interpreter.py __init__: type(self.backend):{type(self.backend)} and self.backend:{ self.backend}")
         # For vision
         self.images_ = []
         self.cur_images = []
@@ -216,9 +216,10 @@ class StreamExecutor:
 
         # Worker thread
         self.use_thread = use_thread
+        print(f"1 python/sglang/srt/interpreter.py __init__: self.use_thread:{self.use_thread} and stream:{stream}")
         if self.use_thread:
             self.queue = queue.Queue()
-
+           
             def _run_worker_in_context():
                 self._thread_worker_func()
 
@@ -237,7 +238,7 @@ class StreamExecutor:
 
     def submit(self, expr: SglExpr):
         self._init_var_event(expr)
-
+        print(f"1 python/sglang/srt/interpreter.py submit: expr:{expr} and type(expr):{type(expr)} and self.use_thread:{self.use_thread}")
         if self.use_thread:
             self.queue.put(expr)
         else:
@@ -321,9 +322,9 @@ class StreamExecutor:
         while True:
             expr = self.queue.get()
             if expr is None:
-                self.queue.task_done()
+                self.queue.task_done()#xiao: 唤醒queue.sync
                 break
-
+            print(f"1 python/sglang/lang/interpreter.py _thread_worker_func: type(expr):{type(expr)} and expr:{expr} ")
             try:
                 self._execute(expr)
             except Exception as e:
@@ -331,6 +332,7 @@ class StreamExecutor:
                 error = e
                 break
             self.queue.task_done()
+            print(f"2 python/sglang/lang/interpreter.py _thread_worker_func: self.stream_text_event:{self.stream_text_event}")
             if self.stream_text_event:
                 self.stream_text_event.set()
 
@@ -355,6 +357,8 @@ class StreamExecutor:
         self.is_finished = True
 
     def _execute(self, other):
+        print(f"1 python/sglang/srt/interpreter.py _execute: type(other):{type(other)} and other:{other}")
+
         if isinstance(other, str):
             other = SglConstantText(other)
 
@@ -398,21 +402,22 @@ class StreamExecutor:
 
     def _execute_fill(self, value: str, prefix=False):
         value = str(value)
-
+        print(f"1 python/sglang/srt/interpreter.py _execute_fill: value:{value} and prefix:{prefix} ")
         if (
             self.cur_role == "assistant"
             and self.num_api_spec_tokens is not None
             and self.backend.is_chat_model
             and not prefix
         ):
+            print(f"2 python/sglang/srt/interpreter.py _execute_fill: self.backend.spec_fill(value) and self.backend:{self.backend}")
             self.backend.spec_fill(value)
             return
-
+        print(f"3 python/sglang/srt/interpreter.py _execute_fill: type(self.speculated_text):{ type(self.speculated_text)} self.speculated_text:{self.speculated_text} and value:{value} ")
         if self.speculated_text.startswith(value):
             self.speculated_text = self.speculated_text[len(value) :]
         else:
             self.speculated_text = ""
-
+        print(f"4 python/sglang/srt/interpreter.py _execute_fill: self.speculated_text:{self.speculated_text}  ad self.text_:{self.text_} and value:{value}")
         self.text_ += value
 
     def _execute_image(self, expr: SglImage):
@@ -647,6 +652,8 @@ class StreamExecutor:
 
     def _init_var_event(self, expr):
         if isinstance(expr, (SglGen, SglSelect, SglVarScopeBegin)):
+            print(f"1 python/sglang/srt/interpreter.py _init_var_event: expr.name:{expr.name}  and expr:{expr} and expr, (SglGen, SglSelect, SglVarScopeBegin) ")
+            print(f"2 python/sglang/srt/interpreter.py _init_var_event: self.stream:{self.stream}")
             self.variable_event[expr.name] = threading.Event()
             if self.stream:
                 self.stream_var_event[expr.name] = threading.Event()
@@ -853,6 +860,7 @@ class ProgramState:
         return self.stream_executor.get_meta_info(name)
 
     def __iadd__(self, other):
+        print(f"1 ProgramState.__iadd__: other:{other} and type(other):{type(other)}")
         self.stream_executor.submit(other)
         return self
 
