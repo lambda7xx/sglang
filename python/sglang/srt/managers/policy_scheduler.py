@@ -44,23 +44,25 @@ class PolicyScheduler:
     def calc_priority(self, waiting_queue: List[Req]):
         # Compute matched prefix length
         prefix_computed = False
+        #print(f"1 python/sglang/srt/managers/policy_scheduler.py calc_priority: self.policy: {self.policy}")
         if self.policy in ["lpm", "dfs-weight"]:
+            #print(f"2 python/sglang/srt/managers/policy_scheduler.py calc_priority: self.policy: {self.policy}")
             for r in waiting_queue:
                 # NOTE: the prefix_indices must always be aligned with last_node
                 r.prefix_indices, r.last_node = self.tree_cache.match_prefix(
                     rid=r.rid, key=r.adjust_max_prefix_ids()
-                )
+                ) #xiao:0823 这个很重要，这个prefix_indices是什么
             prefix_computed = True
 
         if self.policy == "lpm":
             # Longest Prefix Match
-            waiting_queue.sort(key=lambda x: -len(x.prefix_indices))
+            waiting_queue.sort(key=lambda x: -len(x.prefix_indices))#降序排序
         elif self.policy == "fcfs":
             # first come first serve
             pass
         elif self.policy == "lof":
             # longest output first
-            waiting_queue.sort(key=lambda x: -x.sampling_params.max_new_tokens)
+            waiting_queue.sort(key=lambda x: -x.sampling_params.max_new_tokens) 
         elif self.policy == "random":
             random.shuffle(waiting_queue)
         elif self.policy == "dfs-weight":
@@ -139,6 +141,7 @@ class PrefillAdder:
     def remove_running_tokens(
         self, running_batch: ScheduleBatch, new_token_ratio: float
     ):
+        print(f"1 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::remove_running_tokens:  r.sampling_params.max_new_tokens:{r.sampling_params.max_new_tokens} and len(r.output_ids):{len(r.output_ids)}")
         self.rem_total_tokens -= sum(
             [
                 min(
@@ -149,8 +152,9 @@ class PrefillAdder:
                 for r in running_batch.reqs
             ]
         )
+        print(f"2 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::remove_running_tokens:  self.rem_total_tokens:{self.rem_total_tokens}")
 
-    def _prefill_one_req(
+    def  _prefill_one_req(
         self, prefix_len: int, extend_input_len: int, max_new_tokens: int
     ):
         self.rem_total_tokens -= extend_input_len + max_new_tokens
@@ -189,24 +193,30 @@ class PrefillAdder:
         finally:
             delta = self.tree_cache.dec_lock_ref(last_node)
             self.rem_total_tokens += delta
-
+    #xiao:0823 这个函数很重要
     def add_one_req(self, req: Req):
         total_tokens = req.extend_input_len + min(
             req.sampling_params.max_new_tokens, CLIP_MAX_NEW_TOKENS
         )
+        print(f"1 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  total_tokens:{total_tokens} and self.rem_total_tokens:{self.rem_total_tokens}") ")
         input_tokens = req.extend_input_len
         prefix_len = len(req.prefix_indices)
+        print(f"2 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  prefix_len:{prefix_len} and input_tokens:{input_tokens}")
 
         if total_tokens >= self.rem_total_tokens:
-            return False
+            #xiao: 无法加入这个req, 因为总的tokens不够了
+            return False 
 
         if input_tokens > self.rem_input_tokens and len(self.can_run_list) != 0:
+            #xiao: 0824 为什么len(self.can_run_list) != 0 就不可以加入
             return False
 
-        with self._lock_node(req.last_node):
+        with self._lock_node(req.last_node):#xiao 这里使用_lock_node函数干什么用的
             if total_tokens > self.rem_total_tokens:
                 return False
-
+            print(f"3 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  self.rem_chunk_tokens:{self.rem_chunk_tokens}")
+            print(f"4 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  input_tokens:{input_tokens} self.rem_chunk_tokens:{self.rem_chunk_tokens}")
+            print(f"5 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  req.return_logprob:{req.return_logprob} req.normalized_prompt_logprob:{req.normalized_prompt_logprob}")
             if (
                 self.rem_chunk_tokens is None
                 or input_tokens <= self.rem_chunk_tokens

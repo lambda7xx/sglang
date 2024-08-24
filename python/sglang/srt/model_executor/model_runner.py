@@ -87,6 +87,7 @@ class ModelRunner:
         self.nccl_port = nccl_port
         self.server_args = server_args
         self.is_multimodal_model = is_multimodal_model(self.model_config)
+        print(f"1 python/sglang/srt/model_executor/model_runner.py __init__: self.model_config:{self.model_config}")
         global_server_args_dict.update(
             {
                 "disable_flashinfer": server_args.disable_flashinfer,
@@ -99,14 +100,15 @@ class ModelRunner:
         # Init torch distributed
         torch.cuda.set_device(self.gpu_id)
         logger.info(f"[gpu={self.gpu_id}] Init nccl begin.")
-
+        print(f"2 python/sglang/srt/model_executor/model_runner.py __init__: server_args.enable_p2p_check:{server_args.enable_p2p_check}")
         if not server_args.enable_p2p_check:
             monkey_patch_vllm_p2p_access_check(self.gpu_id)
-
+        print(f"3 python/sglang/srt/model_executor/model_runner.py __init__: server_args.nccl_init_addr:{server_args.nccl_init_addr}")
         if server_args.nccl_init_addr:
             nccl_init_method = f"tcp://{server_args.nccl_init_addr}"
         else:
             nccl_init_method = f"tcp://127.0.0.1:{self.nccl_port}"
+        print(f"4 python/sglang/srt/model_executor/model_runner.py __init__: nccl_init_method:{nccl_init_method}")
         set_custom_all_reduce(not server_args.disable_custom_all_reduce)
         init_distributed_environment(
             backend="nccl",
@@ -119,6 +121,7 @@ class ModelRunner:
         total_gpu_memory = get_available_gpu_memory(
             self.gpu_id, distributed=self.tp_size > 1
         )
+        print(f"5 python/sglang/srt/model_executor/model_runner.py __init__: total_gpu_memory:{total_gpu_memory} and self.tp_size:{self.tp_size}")
         self.tp_group = get_tp_group()
         self.is_multi_node_tp = not all(
             in_the_same_node_as(self.tp_group.cpu_group, source_rank=0)
@@ -133,17 +136,21 @@ class ModelRunner:
 
         # Load the model and create memory pool
         self.load_model()
+        #xiao: 0823 这里是初始化内存池,很重要
         self.init_memory_pool(
             total_gpu_memory,
             server_args.max_num_reqs,
             server_args.max_total_tokens,
         )
+        #xiao 0823 这里是初始化cublas,很重要
         self.init_cublas()
+        #xiao 0823 这里是初始化flashinfer,很重要
         self.init_flashinfer()
-
+        print(f"6 python/sglang/srt/model_executor/model_runner.py __init__: self.is_generation:{self.is_generation}")
         if self.is_generation:
             # FIXME Currently, cuda graph only capture decode steps, which only exists in causal models
             # Capture cuda graphs
+            #xiao 0823 这里是初始化cuda graphs,很重要
             self.init_cuda_graphs()
 
     def load_model(self):
@@ -481,6 +488,7 @@ class ModelRunner:
 
     @torch.inference_mode()
     def forward_decode(self, batch: ScheduleBatch):
+        print(f"1 python/sglang/srt/model_executor/model_runner.py forward_decode")
         if self.cuda_graph_runner and self.cuda_graph_runner.can_run(len(batch.reqs)):
             return self.cuda_graph_runner.replay(batch)
 
@@ -496,6 +504,7 @@ class ModelRunner:
 
     @torch.inference_mode()
     def forward_extend(self, batch: ScheduleBatch):
+        print(f"1 python/sglang/srt/model_executor/model_runner.py forward_extend")
         input_metadata = InputMetadata.from_schedule_batch(
             self,
             batch,
@@ -507,6 +516,7 @@ class ModelRunner:
 
     @torch.inference_mode()
     def forward_extend_multi_modal(self, batch: ScheduleBatch):
+        print(f"1 python/sglang/srt/model_executor/model_runner.py forward_extend_multi_modal")
         input_metadata = InputMetadata.from_schedule_batch(
             self,
             batch,
@@ -522,6 +532,7 @@ class ModelRunner:
         )
 
     def forward(self, batch: ScheduleBatch, forward_mode: ForwardMode):
+        print(f"1 python/sglang/srt/model_executor/model_runner.py forward and forward_mode:{forward_mode}")
         if self.is_multimodal_model and forward_mode == ForwardMode.EXTEND:
             return self.forward_extend_multi_modal(batch)
         elif forward_mode == ForwardMode.DECODE:

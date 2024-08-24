@@ -158,6 +158,8 @@ async def update_weights(obj: UpdateWeightReqInput, request: Request):
 
 async def generate_request(obj: GenerateReqInput, request: Request):
     """Handle a generate request."""
+    print(f"1 python/sglang/srt/server.py generate_request: obj {obj} and request {request}")
+    print(f"2 python/sglang/srt/server.py generate_request: obj.stream {obj.stream}")
     if obj.stream:
 
         async def stream_results():
@@ -276,7 +278,6 @@ def launch_server(
         level=getattr(logging, server_args.log_level.upper()),
         format="%(message)s",
     )
-
     server_args.check_server_args()
     _set_envs_and_config(server_args)
     #print(f"1 python/sglang/srt/server.py launch_server: server_args {server_args}")
@@ -286,7 +287,7 @@ def launch_server(
         server_args.additional_ports,
         server_args.dp_size,
     )
-    
+    print(f"0 python/sglang/srt/server.py launch_server: server_args.port {server_args.port}, server_args.additional_ports {server_args.additional_ports}")
     ports = server_args.additional_ports
     print(f"1 python/sglang/srt/server.py launch_server: tokenizer_port: {ports[0]}, controller_port: {ports[1]}, detokenizer_port: {ports[2]}, nccl_ports: {ports[3:]}")
     port_args = PortArgs(
@@ -295,7 +296,7 @@ def launch_server(
         detokenizer_port=ports[2],
         nccl_ports=ports[3:],
     )
-    logger.info(f"{server_args=}")
+    logger.info(f"server_args= {server_args=}")
 
     # Use model from www.modelscope.cn, first download the model.
     server_args.model_path = prepare_model(server_args.model_path)
@@ -359,7 +360,7 @@ def launch_server(
     # Wait for the model to finish loading
     controller_init_state = pipe_controller_reader.recv()
     detoken_init_state = pipe_detoken_reader.recv()
-
+    print(f"4 python/sglang/srt/server.py launch_server: controller_init_state {controller_init_state}, detoken_init_state {detoken_init_state}")
     if controller_init_state != "init ok" or detoken_init_state != "init ok":
         proc_controller.kill()
         proc_detoken.kill()
@@ -373,7 +374,7 @@ def launch_server(
     # Add api key authorization
     if server_args.api_key:
         add_api_key_middleware(app, server_args.api_key)
-
+    print(f"3 python/sglang/srt/server.py launch_server: wait_and_warmup")
     # Send a warmup request
     t = threading.Thread(
         target=_wait_and_warmup, args=(server_args, pipe_finish_writer, os.getpid())
@@ -382,6 +383,7 @@ def launch_server(
 
     try:
         # Listen for requests
+        print(f"4 python/sglang/srt/server.py launch_server: server_args.host {server_args.host}, server_args.port {server_args.port}")
         uvicorn.run(
             app,
             host=server_args.host,
@@ -522,7 +524,7 @@ class Runtime:
         self.generate_url = (
             f"http://{self.server_args.host}:{self.server_args.port}/generate"
         )
-        print(f"1 python/sglang/srt/server.py Runtime __init__: self.generate_url {self.generate_url}")
+        print(f"1 python/sglang/srt/server.py Runtime __init__: self.generate_url {self.generate_url} and self.url: {self.url}")
         self.pid = None
         pipe_reader, pipe_writer = mp.Pipe(duplex=False)
         proc = mp.Process(

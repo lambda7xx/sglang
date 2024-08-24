@@ -172,11 +172,13 @@ def start_detokenizer_process(
     port_args: PortArgs,
     pipe_writer,
 ):
+    print(f"1 python/sglang/srt/managers/detokenizer_manager.py start_detokenizer_process: server_args:{server_args}")
     try:
         manager = DetokenizerManager(server_args, port_args)
     except Exception:
         pipe_writer.send(get_exception_traceback())
         raise
+    print(f"2 python/sglang/srt/managers/detokenizer_manager.py start_detokenizer_process: pipe_writer.send('init ok')")
     pipe_writer.send("init ok")
     loop = asyncio.get_event_loop()
     loop.run_until_complete(manager.handle_loop())

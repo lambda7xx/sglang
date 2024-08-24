@@ -495,7 +495,7 @@ class StreamExecutor:
     def _execute_gen(self, expr: SglGen):
         sampling_params = self._resolve_sampling_params(expr.sampling_params)
         name = expr.name
-
+        print(f"1 python/sglang/lang/interpreter.py  _execute_gen: name:{name} and self.stream:{self.stream} and self.num_api_spec_tokens:{self.num_api_spec_tokens} and type(backend):{self.backend} ")
         if not self.stream:
             if self.num_api_spec_tokens is None:
                 comp, meta_info = self.backend.generate(

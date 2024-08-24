@@ -107,7 +107,7 @@ class ModelTpServer:
             tp_size=server_args.tp_size,
             nccl_port=nccl_port,
             server_args=server_args,
-        )
+        )#xiao 0823: MdeolRunner 是一个很重要的类
         print(f"6 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and server_args.skip_tokenizer_init:{server_args.skip_tokenizer_init}")
         if server_args.skip_tokenizer_init:
             self.tokenizer = self.processor = None
@@ -187,6 +187,7 @@ class ModelTpServer:
         self.tree_cache_metrics = {"total": 0, "hit": 0}
         print(f"17 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.tree_cache_metrics:{self.tree_cache_metrics}")
         #xiao 0821 这个scheduler 很重要
+        print(f"17.5 python/sglang/srt/managers/tp_worker.py __init__:   self.tp_rank:{self.tp_rank} and self.schedule_policy:{self.schedule_policy}")
         self.scheduler = PolicyScheduler(self.schedule_policy, self.tree_cache)
         self.req_to_token_pool = self.model_runner.req_to_token_pool
         self.token_to_kv_pool = self.model_runner.token_to_kv_pool
@@ -240,20 +241,25 @@ class ModelTpServer:
         try:
             # Recv requests
             for recv_req in recv_reqs:
+                print(f"1 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and type(recv_req):{type(recv_req)}")
                 if isinstance(
                     recv_req, (TokenizedGenerateReqInput, TokenizedEmbeddingReqInput)
-                ):
+                ):  
+                    print(f"2 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and isinstance(recv_req, (TokenizedGenerateReqInput, TokenizedEmbeddingReqInput))")
                     self.handle_generate_request(recv_req)
                 elif isinstance(recv_req, FlushCacheReq):
+                    print(f"3 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and isinstance(recv_req, FlushCacheReq)")
                     self.flush_cache()
                 elif isinstance(recv_req, AbortReq):
+                    print(f"4 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and isinstance(recv_req, AbortReq)")
                     self.abort_request(recv_req)
                 elif isinstance(recv_req, UpdateWeightReqInput):
+                    print(f"5 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and isinstance(recv_req, UpdateWeightReqInput)")
                     success, message = self.update_weights(recv_req)
                     self.out_pyobjs.append(UpdateWeightReqOutput(success, message))
                 else:
                     raise ValueError(f"Invalid request: {recv_req}")
-
+            print(f"6 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and len(self.waiting_queue):{len(self.waiting_queue)}")
             # Forward
             self.forward_step()
         except Exception:
@@ -337,16 +343,22 @@ class ModelTpServer:
             )
             exit(1) if crash_on_warning else None
 
+    #xiao 0823 这个函数很重要
     def handle_generate_request(
         self,
         recv_req: Union[TokenizedGenerateReqInput, TokenizedEmbeddingReqInput],
     ):
-        req = Req(recv_req.rid, recv_req.input_text, recv_req.input_ids)
+        print(f"1 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and type(recv_req.input_text):{type(recv_req.input_text)} and type(recv_req.input_ids):{type(recv_req.input_ids)}")
+        req = Req(recv_req.rid, recv_req.input_text, recv_req.input_ids) #xiao 0823 这里是初始化Req
         req.tokenizer = self.tokenizer
         req.sampling_params = recv_req.sampling_params
+        print(f"2 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and req.sampling_params:{req.sampling_params}")
         if self.model_runner.is_generation:
+            print(f"3 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and self.model_runner.is_generation:{self.model_runner.is_generation}")
             req.pixel_values = recv_req.pixel_values
+            print(f"4 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and req.pixel_values:{req.pixel_values}")
             if req.pixel_values is not None:
+                #xiao: 0823 这里是为啥这么处理，似乎是处理image的
                 req.pad_value = [
                     (recv_req.image_hash) % self.model_config.vocab_size,
                     (recv_req.image_hash >> 16) % self.model_config.vocab_size,
@@ -367,9 +379,14 @@ class ModelTpServer:
             req.logprob_start_len = recv_req.logprob_start_len
             req.top_logprobs_num = recv_req.top_logprobs_num
             req.stream = recv_req.stream
-
+            print(f"5 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and req.return_logprob:{req.return_logprob}")
+            print(f"6 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and req.logprob_start_len:{req.logprob_start_len}")
+            print(f"7 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and req.top_logprobs_num:{req.top_logprobs_num}")
+            print(f"8 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and req.stream:{req.stream} ")
             # Init regex fsm
             if req.sampling_params.regex is not None:
+                print(f"9 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and req.sampling_params.regex:{req.sampling_params.regex}")
+                #xiao: 0823 这里是初始化regex_fsm_cache, 干什么的
                 req.regex_fsm = self.regex_fsm_cache.query(req.sampling_params.regex)
                 if not self.disable_regex_jump_forward:
                     req.jump_forward_map = self.jump_forward_cache.query(
@@ -385,6 +402,7 @@ class ModelTpServer:
             req.origin_input_ids = req.origin_input_ids[: self.max_req_input_len]
 
         if self.model_runner.is_generation:
+            
             req.sampling_params.max_new_tokens = min(
                 (
                     req.sampling_params.max_new_tokens
@@ -393,6 +411,7 @@ class ModelTpServer:
                 ),
                 self.max_req_input_len - 1 - len(req.origin_input_ids),
             )
+            print(f"9 python/sglang/srt/managers/tp_worker.py handle_generate_request: self.tp_rank:{self.tp_rank} and req.sampling_params.max_new_tokens:{req.sampling_params.max_new_tokens}")
 
         self.waiting_queue.append(req)
 
@@ -404,10 +423,15 @@ class ModelTpServer:
             return None
 
         # Get priority queue
-        prefix_computed = self.scheduler.calc_priority(self.waiting_queue)
+        prefix_computed = self.scheduler.calc_priority(self.waiting_queue) #xiao 0823 这个函数很重要
+
+        print(f"1 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and prefix_computed:{prefix_computed} and self.is_mixed_chunk:{self.is_mixed_chunk}")
 
         num_mixed_running = running_bs if self.is_mixed_chunk else 0
-
+        print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and num_mixed_running:{num_mixed_running}")
+        print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size():{self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size()}")
+        print(f"4 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.max_prefill_tokens:{self.max_prefill_tokens}")
+        print(f"5 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.chunked_prefill_size:{self.chunked_prefill_size}")
         adder = PrefillAdder(
             self.tree_cache,
             self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size(),
@@ -415,12 +439,16 @@ class ModelTpServer:
             self.chunked_prefill_size,
             num_mixed_running,
         )
-
+        
         if self.running_batch is not None:
+            print(f"6 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.running_batch is not None")
             adder.remove_running_tokens(self.running_batch, self.new_token_ratio)
 
         has_inflight = self.current_inflight_req is not None
+        print(f"7 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and has_inflight:{has_inflight}")
         if self.current_inflight_req is not None:
+            #xiao 0823 这里很重要
+            print(f"8 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.current_inflight_req is not None and prefix_computed:{prefix_computed}")
             self.current_inflight_req.init_next_round_input(
                 None if prefix_computed else self.tree_cache
             )
@@ -431,6 +459,9 @@ class ModelTpServer:
         for req in self.waiting_queue:
             req.init_next_round_input(None if prefix_computed else self.tree_cache)
             res = adder.add_one_req(req)
+            print(f"9 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and not res:{not res}")
+            print(f"10 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and adder.no_remaining_tokens():{adder.no_remaining_tokens()}")
+            print(f"11 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and running_bs + len(adder.can_run_list) >= self.max_running_requests:{running_bs + len(adder.can_run_list) >= self.max_running_requests}")
             if (
                 not res
                 or adder.no_remaining_tokens()
@@ -439,10 +470,12 @@ class ModelTpServer:
                 break
 
         can_run_list = adder.can_run_list
-
+        print(f"12 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and len(can_run_list):{len(can_run_list)}")
         if adder.new_inflight_req is not None:
+            print(f"13 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and adder.new_inflight_req is not None")
             assert self.current_inflight_req is None
             self.current_inflight_req = adder.new_inflight_req
+            
 
         if len(can_run_list) == 0:
             return None

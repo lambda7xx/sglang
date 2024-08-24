@@ -169,25 +169,29 @@ class Req:
         if tree_cache is not None:
             self.prefix_indices, self.last_node = tree_cache.match_prefix(
                 rid=self.rid, key=self.adjust_max_prefix_ids()
-            )
+            )#xiao: 找到最大的prefix长度
         self.extend_input_len = len(self.fill_ids) - len(self.prefix_indices)
 
     def adjust_max_prefix_ids(self):
         self.fill_ids = self.origin_input_ids + self.output_ids
         input_len = len(self.fill_ids)
         max_prefix_len = input_len
+        print(f"1 sglang/srt/meta.py Req::adjust_max_prefix_ids: max_prefix_len={max_prefix_len} and self.sampling_params.max_new_tokens={self.sampling_params.max_new_tokens}")
 
         if self.sampling_params.max_new_tokens > 0:
             # Need at least one token to compute logits
             max_prefix_len = min(max_prefix_len, input_len - 1)
+            print(f"2 sglang/srt/meta.py Req::adjust_max_prefix_ids: self.sampling_params.max_new_tokens > 0 and max_prefix_len={max_prefix_len}")
 
         if self.return_logprob:
+            print(f"3 sglang/srt/meta.py Req::adjust_max_prefix_ids: self.return_logprob and self.logprob_start_len={self.logprob_start_len}")
             max_prefix_len = min(max_prefix_len, self.logprob_start_len)
-
+            print(f"4 sglang/srt/meta.py Req::adjust_max_prefix_ids: self.return_logprob and max_prefix_len={max_prefix_len}")
             if self.normalized_prompt_logprob is None:
                 # Need at least two tokens to compute normalized logprob
                 max_prefix_len = min(max_prefix_len, input_len - 2)
-
+                print(f"5 sglang/srt/meta.py Req::adjust_max_prefix_ids: self.return_logprob and self.normalized_prompt_logprob is None and max_prefix_len={max_prefix_len}")
+        print(f"6 sglang/srt/meta.py Req::adjust_max_prefix_ids: len(self.fill_ids)={len(self.fill_ids)} and max_prefix_len={max_prefix_len}")
         return self.fill_ids[:max_prefix_len]
 
     # Based on https://github.com/vllm-project/vllm/blob/7a64d24aad69e4d2548aa0bf528d9fe63428ab01/vllm/transformers_utils/detokenizer.py#L194-L313

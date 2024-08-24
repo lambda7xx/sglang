@@ -143,7 +143,7 @@ class RuntimeEndpoint(BaseBackend):
                 **sampling_params.to_srt_kwargs(),
             },
         }
-
+        print(f"1 python/sglang/lang/backend/runtime_endpoint.py generate data: {data}")
         for item in [
             "return_logprob",
             "logprob_start_len",
@@ -155,7 +155,8 @@ class RuntimeEndpoint(BaseBackend):
                 data[item] = value
 
         self._add_images(s, data)
-
+        t_url = self.base_url + "/generate"
+        print(f"2 python/sglang/lang/backend/runtime_endpoint.py generate url:{t_url}")
         res = http_request(
             self.base_url + "/generate",
             json=data,

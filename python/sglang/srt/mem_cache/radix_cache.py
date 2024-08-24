@@ -77,12 +77,13 @@ class RadixCache(BasePrefixCache):
         self.evictable_size_ = 0
 
     def match_prefix(self, key: List, **kwargs):
+        print(f"1 python/sglang/srt/mem_cache/radix_cache.py match_prefix: key:{key} and kwargs:{kwargs} and self.disable:{self.disable}")
         if self.disable:
             return [], self.root_node
 
         value = []
         last_node = [self.root_node]
-        self._match_prefix_helper(self.root_node, key, value, last_node)
+        self._match_prefix_helper(self.root_node, key, value, last_node) #xiao:0823 这个很重要
         if value:
             value = torch.concat(value)
         else:
@@ -176,6 +177,7 @@ class RadixCache(BasePrefixCache):
             if len(x.parent.children) == 0:
                 heapq.heappush(leaves, x.parent)
 
+    #xiao 0823 这个很重要,干什么的
     def inc_lock_ref(self, node: TreeNode):
         if self.disable:
             return 0
@@ -206,17 +208,19 @@ class RadixCache(BasePrefixCache):
         return self.evictable_size_
 
     ##### Internal Helper Functions #####
-
+    #xiao 0823 这个很重要
     def _match_prefix_helper(
         self, node: TreeNode, key: List, value, last_node: TreeNode
     ):
         node.last_access_time = time.time()
         if len(key) == 0:
             return
-
+        print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: len(key):{len(key)} and key:{key} and key[0]:{key[0]}")
+        print(f"2 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: node.children.keys():{node.children.keys()}")
         if key[0] in node.children.keys():
             child = node.children[key[0]]
-            prefix_len = _key_match(child.key, key)
+            prefix_len = _key_match(child.key, key) #xiao:0823 这个很重要
+            print(f"3 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len:{prefix_len} and child.key:{len(child.key)} ")
             if prefix_len < len(child.key):
                 new_node = self._split_node(child.key, child, prefix_len)
                 value.append(new_node.value)
@@ -240,6 +244,7 @@ class RadixCache(BasePrefixCache):
         new_node.parent.children[key[:split_len][0]] = new_node
         return new_node
 
+    #xiao 0823 这个很重要
     def _insert_helper(self, node: TreeNode, key: List, value):
         node.last_access_time = time.time()
         if len(key) == 0:

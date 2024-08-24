@@ -97,7 +97,7 @@ class ControllerSingle:
 
     def loop_for_forward(self):
         while True:
-            print(f"1 python/sglang/srt/managers/controller_single.py loop_for_forward: not self.is_dp_worker:{not self.is_dp_worker}")
+            #print(f"1 python/sglang/srt/managers/controller_single.py loop_for_forward: not self.is_dp_worker:{not self.is_dp_worker}")
             if not self.is_dp_worker:
                 recv_reqs = self.recv_requests_from_zmq()
             else:
@@ -167,7 +167,7 @@ def start_controller_process(
     except Exception:
         pipe_writer.send(get_exception_traceback())
         raise
-
+    print(f"4 python/sglang/srt/managers/controller_single.py start_controller_process: start loop_for_forward")
     pipe_writer.send("init ok")
 
     try:

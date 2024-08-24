@@ -149,6 +149,7 @@ class TokenizerManager:
     async def generate_request(
         self, obj: Union[GenerateReqInput, EmbeddingReqInput], request=None
     ):
+        print(f"1 python/sglang/srt/managers/tokenizer_manager.py generate_request :type(obj): {type(obj)} and type(request): {type(request)}")
         if self.to_create_loop:
             self.create_handle_loop()
 
