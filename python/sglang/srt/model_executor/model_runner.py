@@ -532,7 +532,7 @@ class ModelRunner:
         )
 
     def forward(self, batch: ScheduleBatch, forward_mode: ForwardMode):
-        print(f"1 python/sglang/srt/model_executor/model_runner.py forward and forward_mode:{forward_mode}")
+        print(f"1 python/sglang/srt/model_executor/model_runner.py forward and forward_mode:{forward_mode} and self.is_multimodal_model:{self.is_multimodal_model}")
         if self.is_multimodal_model and forward_mode == ForwardMode.EXTEND:
             return self.forward_extend_multi_modal(batch)
         elif forward_mode == ForwardMode.DECODE:
@@ -542,7 +542,7 @@ class ModelRunner:
         else:
             raise ValueError(f"Invaid forward mode: {forward_mode}")
 
-
+#xiao 0827 导入model,比如说llama model
 @lru_cache()
 def import_model_classes():
     model_arch_name_to_cls = {}

@@ -273,7 +273,7 @@ class ModelTpServer:
 
     @torch.inference_mode()
     def forward_step(self):
-        new_batch = self.get_new_prefill_batch()
+        new_batch = self.get_new_prefill_batch() #xiao: 0827 形成batch 
 
         if new_batch is not None:
             # Run a new prefill batch
@@ -526,19 +526,21 @@ class ModelTpServer:
 
     def forward_prefill_batch(self, batch: ScheduleBatch):
         # Build batch tensors
-        batch.prepare_for_extend(self.model_config.vocab_size)
+        batch.prepare_for_extend(self.model_config.vocab_size) #xiao 0827, this is very important
 
         decoding_reqs = []
+        print(f"1 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, the self.is_mixed_chunk:{self.is_mixed_chunk} and self.running_batch is not None:{self.running_batch is not None}")
         if self.is_mixed_chunk and self.running_batch is not None:
-            self.running_batch.prepare_for_decode()
-            batch.mix_with_running(self.running_batch)
+            self.running_batch.prepare_for_decode() #xiao 0827 this is very important
+            batch.mix_with_running(self.running_batch)#xiao 0827 this is very important
             decoding_reqs = self.running_batch.reqs
             self.running_batch = None
-
+        
         if self.model_runner.is_generation:
+            print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and batch.extend_num_tokens:{batch.extend_num_tokens}")
             # Forward and sample the next tokens
             if batch.extend_num_tokens != 0:
-                output = self.model_runner.forward(batch, ForwardMode.EXTEND)
+                output = self.model_runner.forward(batch, ForwardMode.EXTEND) #xiao: 0827 call model 
                 next_token_ids = batch.sample(output.next_token_logits)
 
                 # Move logprobs to cpu
@@ -587,7 +589,7 @@ class ModelTpServer:
                     pt += req.extend_input_len
         else:
             assert batch.extend_num_tokens != 0
-            output = self.model_runner.forward(batch, ForwardMode.EXTEND)
+            output = self.model_runner.forward(batch, ForwardMode.EXTEND) #xiao 0827 call model 
             embeddings = output.embeddings.tolist()
 
             # Check finish conditions
@@ -698,7 +700,7 @@ class ModelTpServer:
         batch.prepare_for_decode()
 
         # Forward and sample the next tokens
-        output = self.model_runner.forward(batch, ForwardMode.DECODE)
+        output = self.model_runner.forward(batch, ForwardMode.DECODE) #xiao: 0827, call model 
         next_token_ids = batch.sample(output.next_token_logits)
 
         # Move logprobs to cpu

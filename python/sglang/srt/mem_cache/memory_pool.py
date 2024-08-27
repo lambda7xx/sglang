@@ -63,7 +63,7 @@ class BaseTokenToKVPool:
 
         # We also add one slot. This slot is used for writing dummy output from padded tokens.
         self.mem_state = torch.ones((self.size + 1,), dtype=torch.bool, device="cuda")
-
+        print(f"1 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::init() self.mem_state.shape: {self.mem_state.shape}")
         # Prefetch buffer
         self.prefetch_buffer = torch.empty(0, device="cuda", dtype=torch.int32)
         self.prefetch_chunk_size = 512
@@ -76,27 +76,31 @@ class BaseTokenToKVPool:
 
     def alloc(self, need_size: int):
         buffer_len = len(self.prefetch_buffer)
+        print(f"1 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() buffer_len: {buffer_len} and need_size: {need_size}")
         if need_size <= buffer_len:
             select_index = self.prefetch_buffer[:need_size]
             self.prefetch_buffer = self.prefetch_buffer[need_size:]
             return select_index
 
         addition_size = need_size - buffer_len
+        print(f"2 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() addition_size: {addition_size}")
         alloc_size = max(addition_size, self.prefetch_chunk_size)
+        print(f"3 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() alloc_size: {alloc_size}")
         select_index = (
             torch.nonzero(self.mem_state).squeeze(1)[:alloc_size].to(torch.int32)
         )
-
+        print(f"4 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() select_index.shape: {select_index.shape}")
         if select_index.shape[0] < addition_size:
             return None
-
+        print(f"5 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() self.mem_state.shape:{self.mem_state.shape} and len(select_index):{len(select_index)}")
         self.mem_state[select_index] = False
         self.can_use_mem_size -= len(select_index)
-
+        print(f"6 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() self.can_use_mem_size: {self.can_use_mem_size}")
         self.prefetch_buffer = torch.cat((self.prefetch_buffer, select_index))
+        print(f"7 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() self.prefetch_buffer.shape: {self.prefetch_buffer.shape}")
         ret_index = self.prefetch_buffer[:need_size]
         self.prefetch_buffer = self.prefetch_buffer[need_size:]
-
+        print(f"8 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() ret_index.shape: {ret_index.shape}")
         return ret_index
 
     def free(self, free_index: torch.Tensor):

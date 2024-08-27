@@ -103,6 +103,7 @@ class InputMetadata:
         if self.forward_mode == ForwardMode.DECODE:
             if True:
                 self.positions = self.seq_lens - 1
+                print(f"1 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_positions, self.positions.shape: {self.positions.shape}")
             else:
                 # Deprecated
                 self.positions = (self.seq_lens - 1) + position_ids_offsets
@@ -118,6 +119,7 @@ class InputMetadata:
                     ),
                     device="cuda",
                 )
+                print(f"2 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_positions, self.positions.shape: {self.positions.shape}")
             else:
                 # Deprecated
                 position_ids_offsets_cpu = position_ids_offsets.cpu().numpy()
@@ -138,8 +140,11 @@ class InputMetadata:
         # Positions should be in long type
         self.positions = self.positions.to(torch.int64)
 
+    #xiao 0827 这个很重要
     def compute_extend_infos(self, batch: ScheduleBatch):
+        print(f"1 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.forward_mode: {self.forward_mode}")
         if self.forward_mode == ForwardMode.DECODE:
+            #xiao: 0827 为什么decode的时候不需要extend_seq_lens等信息
             self.extend_seq_lens = self.extend_start_loc = self.extend_no_prefix = None
             self.extend_seq_lens_cpu = self.logprob_start_lens_cpu = None
         else:
@@ -182,7 +187,7 @@ class InputMetadata:
             out_cache_loc=batch.out_cache_loc,
             return_logprob=batch.return_logprob,
             top_logprobs_nums=batch.top_logprobs_nums,
-        )
+        ) #0xiao 初始化InputMetadata类
 
         ret.compute_positions(batch)
 
@@ -193,6 +198,7 @@ class InputMetadata:
             or model_runner.server_args.disable_flashinfer
         ):
             ret.total_num_tokens = int(torch.sum(ret.seq_lens))
+            print(f"1 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::from_schedule_batch, ret.total_num_tokens: {ret.total_num_tokens}")
 
         if forward_mode != ForwardMode.DECODE:
             ret.init_multimuldal_info(batch)

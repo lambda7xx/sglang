@@ -401,12 +401,15 @@ class ScheduleBatch:
             dtype=torch.float,
             device=device,
         ).view(-1, 1)
+        print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::batch_sampling_params, the self.temperatures.shape:{self.temperatures.shape}")
         self.top_ps = torch.tensor(
             [r.sampling_params.top_p for r in reqs], dtype=torch.float, device=device
         )
+        print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::batch_sampling_params, the self.top_ps.shape:{self.top_ps.shape}")
         self.top_ks = torch.tensor(
             [r.sampling_params.top_k for r in reqs], dtype=torch.int, device=device
         )
+        print(f"3 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::batch_sampling_params, the self.top_ks.shape:{self.top_ks.shape}")
 
         # Each penalizers will do nothing if they evaluate themselves as not required by looking at
         # the sampling_params of the requests (See {_is_required()} of each penalizers). So this
@@ -415,6 +418,7 @@ class ScheduleBatch:
         # While we choose not to even create the class instances if they are not required, this
         # could add additional complexity to the {ScheduleBatch} class, especially we need to
         # handle {filter_batch()} and {merge()} cases as well.
+        #xiao:0827 这是干什么的
         self.penalizer_orchestrator = penaltylib.BatchedPenalizerOrchestrator(
             vocab_size=vocab_size,
             batch=self,
@@ -428,34 +432,37 @@ class ScheduleBatch:
         )
 
         # Handle logit bias but only allocate when needed
-        self.logit_bias = None
+        self.logit_bias = None #xiao:0827 这是干什么的
 
     def prepare_for_extend(self, vocab_size: int):
         bs = self.batch_size()
         reqs = self.reqs
-        input_ids = [r.fill_ids[len(r.prefix_indices) :] for r in reqs]
+        input_ids = [r.fill_ids[len(r.prefix_indices) :] for r in reqs]#xiao 0827: 如何设置r.fill_ids
         extend_num_tokens = sum(len(ids) for ids in input_ids)
         seq_lens = []
-
+        print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, the bs:{bs} and extend_num_tokens:{extend_num_tokens}")
         # Allocate memory
-        req_pool_indices_cpu = self.alloc_req_slots(bs)
-        out_cache_loc = self.alloc_token_slots(extend_num_tokens)
-
+        req_pool_indices_cpu = self.alloc_req_slots(bs) #xiao
+        out_cache_loc = self.alloc_token_slots(extend_num_tokens) #xiao 
+        print(f"1.5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, type(out_cache_loc):{type(out_cache_loc)} and out_cache_loc.shape:{out_cache_loc.shape}")
         pt = 0
         for i, req in enumerate(reqs):
             req.req_pool_idx = req_pool_indices_cpu[i]
             pre_len, seq_len = len(req.prefix_indices), len(req.fill_ids)
             ext_len = seq_len - pre_len
+            print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, i:{i} and pre_len:{pre_len} and seq_len:{seq_len} and ext_len:{ext_len}")
             seq_lens.append(seq_len)
 
             if pre_len > 0:
+                print(f"3 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, the i:{i} and req.req_pool_idx:{req.req_pool_idx} and pre_len:{pre_len}")
                 self.req_to_token_pool.req_to_token[req.req_pool_idx][
                     :pre_len
                 ] = req.prefix_indices
-
+                print(f"3.2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, len(req.prefix_indices):{len(req.prefix_indices)}")
             self.req_to_token_pool.req_to_token[req.req_pool_idx][pre_len:seq_len] = (
                 out_cache_loc[pt : pt + ext_len]
             )
+            print(f"3.8 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, out_cache_loc[pt : pt + ext_len].shape:{out_cache_loc[pt : pt + ext_len].shape}")
             pt += ext_len
 
         # Set fields
@@ -464,14 +471,19 @@ class ScheduleBatch:
             self.req_pool_indices = torch.tensor(req_pool_indices_cpu)
             self.seq_lens = torch.tensor(seq_lens, dtype=torch.int32)
             self.position_ids_offsets = torch.zeros((bs,), dtype=torch.int64)
+            print(f"4 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, the self.input_ids.shape:{self.input_ids.shape}")
+            print(f"5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, the self.req_pool_indices.shape:{self.req_pool_indices.shape}")
+            print(f"6 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, the self.seq_lens.shape:{self.seq_lens.shape}")
+            print(f"7 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, the self.position_ids_offsets.shape:{self.position_ids_offsets.shape}")
 
         self.extend_num_tokens = extend_num_tokens
         self.out_cache_loc = out_cache_loc
-        self.top_logprobs_nums = [r.top_logprobs_num for r in reqs]
-        self.prefix_lens_cpu = [len(r.prefix_indices) for r in reqs]
+        self.top_logprobs_nums = [r.top_logprobs_num for r in reqs] #xiao:0827 这是干什么的
+        self.prefix_lens_cpu = [len(r.prefix_indices) for r in reqs]#xiao:0827 这是干什么的
 
         self.batch_sampling_params(vocab_size)
 
+    #xiao:0827 this is very important
     def mix_with_running(self, running_batch: "ScheduleBatch"):
         # NOTE: prefix_indices is what has been cached, but we don't cache each decode step
         prefix_lens_cpu = [len(r.prefix_indices) for r in self.reqs]
@@ -659,12 +671,14 @@ class ScheduleBatch:
 
         return jump_forward_reqs
 
+    #xiao 0827 this is very important
     def prepare_for_decode(self, input_ids=None):
         if input_ids is None:
             input_ids = [
                 r.output_ids[-1] if r.output_ids else r.origin_input_ids[-1]
                 for r in self.reqs
-            ]
+            ] #xiao 0827: 这是干什么的, 这里r.output_ids和r.origin_input_ids[-1]是什么意思
+            print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the len(input_ids):{len(input_ids)}")
         else:
             self.penalizer_orchestrator.cumulate_input_tokens(input_ids)
 
