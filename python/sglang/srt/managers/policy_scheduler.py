@@ -56,7 +56,7 @@ class PolicyScheduler:
 
         if self.policy == "lpm":
             # Longest Prefix Match
-            waiting_queue.sort(key=lambda x: -len(x.prefix_indices))#降序排序
+            waiting_queue.sort(key=lambda x: -len(x.prefix_indices))#xiao 降序排序
         elif self.policy == "fcfs":
             # first come first serve
             pass
@@ -141,7 +141,7 @@ class PrefillAdder:
     def remove_running_tokens(
         self, running_batch: ScheduleBatch, new_token_ratio: float
     ):
-        print(f"1 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::remove_running_tokens:  r.sampling_params.max_new_tokens:{r.sampling_params.max_new_tokens} and len(r.output_ids):{len(r.output_ids)}")
+        #print(f"1 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::remove_running_tokens:  r.sampling_params.max_new_tokens:{r.sampling_params.max_new_tokens} and len(r.output_ids):{len(r.output_ids)}")
         self.rem_total_tokens -= sum(
             [
                 min(
@@ -162,8 +162,8 @@ class PrefillAdder:
         if self.rem_chunk_tokens is not None:
             self.rem_chunk_tokens -= extend_input_len
 
-        self.log_hit_tokens += prefix_len
-        self.log_input_tokens += extend_input_len
+        self.log_hit_tokens += prefix_len #xiao 这个是干什么用的
+        self.log_input_tokens += extend_input_len #xiao 这个是干什么用的
 
     def add_inflight_req(self, req: Req):
         truncated = req.extend_input_len > self.rem_chunk_tokens
@@ -198,7 +198,7 @@ class PrefillAdder:
         total_tokens = req.extend_input_len + min(
             req.sampling_params.max_new_tokens, CLIP_MAX_NEW_TOKENS
         )
-        print(f"1 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  total_tokens:{total_tokens} and self.rem_total_tokens:{self.rem_total_tokens}") ")
+        print(f"1 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  total_tokens:{total_tokens} and self.rem_total_tokens:{self.rem_total_tokens}) ")
         input_tokens = req.extend_input_len
         prefix_len = len(req.prefix_indices)
         print(f"2 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  prefix_len:{prefix_len} and input_tokens:{input_tokens}")
@@ -223,8 +223,10 @@ class PrefillAdder:
                 or (req.return_logprob and req.normalized_prompt_logprob is None)
             ):
                 # Non-chunked prefill
+                print(f"6  python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  use non-chunked prefill and req.last_node:{req.last_node}")
                 self.can_run_list.append(req)
                 self.tree_cache.inc_lock_ref(req.last_node)
+                print(f"6.1 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  prefix_len:{prefix_len} and input_tokens:{input_tokens} and min(req.sampling_params.max_new_tokens, CLIP_MAX_NEW_TOKENS):{min(req.sampling_params.max_new_tokens, CLIP_MAX_NEW_TOKENS)}")
                 self._prefill_one_req(
                     prefix_len,
                     input_tokens,
@@ -232,6 +234,8 @@ class PrefillAdder:
                 )
             else:
                 # Chunked prefill
+                #xiao: this is very important
+                print(f"7  python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  use chunked prefill, self.rem_chunk_tokens:{self.rem_chunk_tokens}")
                 trunc_len = self.rem_chunk_tokens
                 if trunc_len == 0:
                     return False

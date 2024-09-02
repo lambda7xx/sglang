@@ -145,17 +145,23 @@ class InputMetadata:
         print(f"1 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.forward_mode: {self.forward_mode}")
         if self.forward_mode == ForwardMode.DECODE:
             #xiao: 0827 为什么decode的时候不需要extend_seq_lens等信息
+            print(f"2 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.forward_mode decode")
             self.extend_seq_lens = self.extend_start_loc = self.extend_no_prefix = None
             self.extend_seq_lens_cpu = self.logprob_start_lens_cpu = None
         else:
+            #xiao: 0902 这些设置的意义是什么
             extend_lens_cpu = [
                 len(r.fill_ids) - batch.prefix_lens_cpu[i]
                 for i, r in enumerate(batch.reqs)
             ]
+            print(f"3 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, extend_lens_cpu: {extend_lens_cpu}")
             self.extend_seq_lens = torch.tensor(extend_lens_cpu, device="cuda")
             self.extend_start_loc = torch.zeros_like(self.seq_lens)
             self.extend_start_loc[1:] = torch.cumsum(self.extend_seq_lens[:-1], dim=0)
             self.extend_no_prefix = all(l == 0 for l in batch.prefix_lens_cpu)
+            print(f"4 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.extend_seq_lens: {self.extend_seq_lens.shape}")
+            print(f"5 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.extend_start_loc: {self.extend_start_loc.shape}")
+            print(f"6 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.extend_no_prefix: {self.extend_no_prefix}")
 
             self.extend_seq_lens_cpu = extend_lens_cpu
             self.logprob_start_lens_cpu = [
@@ -169,6 +175,7 @@ class InputMetadata:
                 )
                 for i, req in enumerate(batch.reqs)
             ]
+            print(f"7 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.extend_seq_lens_cpu: {self.extend_seq_lens_cpu}")
 
     @classmethod
     def from_schedule_batch(
@@ -192,7 +199,7 @@ class InputMetadata:
         ret.compute_positions(batch)
 
         ret.compute_extend_infos(batch)
-
+        print(f"0 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::from_schedule_batch, forward_mode != ForwardMode.DECODE:{forward_mode != ForwardMode.DECODE} and model_runner.server_args.disable_flashinfer:{model_runner.server_args.disable_flashinfer}")
         if (
             forward_mode != ForwardMode.DECODE
             or model_runner.server_args.disable_flashinfer
@@ -201,12 +208,14 @@ class InputMetadata:
             print(f"1 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::from_schedule_batch, ret.total_num_tokens: {ret.total_num_tokens}")
 
         if forward_mode != ForwardMode.DECODE:
+            print(f"2 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::from_schedule_batch, forward_mode != ForwardMode.DECODE")
             ret.init_multimuldal_info(batch)
 
         if model_runner.server_args.disable_flashinfer:
-            ret.init_triton_args(batch)
+            ret.init_triton_args(batch) #xiao 0902 这个函数是干什么的
 
         flashinfer_use_ragged = False
+        #xiao:0902 设置flashinfer 的用法
         if not model_runner.server_args.disable_flashinfer:
             if (
                 forward_mode != ForwardMode.DECODE

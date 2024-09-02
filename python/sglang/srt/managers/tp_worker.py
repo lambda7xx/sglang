@@ -259,7 +259,8 @@ class ModelTpServer:
                     self.out_pyobjs.append(UpdateWeightReqOutput(success, message))
                 else:
                     raise ValueError(f"Invalid request: {recv_req}")
-            print(f"6 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and len(self.waiting_queue):{len(self.waiting_queue)}")
+            if len(self.waiting_queue) > 0:
+                print(f"6 python/sglang/srt/managers/tp_worker.py exposed_step:  self.tp_rank:{self.tp_rank} and len(self.waiting_queue):{len(self.waiting_queue)}")
             # Forward
             self.forward_step()
         except Exception:
@@ -425,13 +426,13 @@ class ModelTpServer:
         # Get priority queue
         prefix_computed = self.scheduler.calc_priority(self.waiting_queue) #xiao 0823 这个函数很重要
 
-        print(f"1 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and prefix_computed:{prefix_computed} and self.is_mixed_chunk:{self.is_mixed_chunk}")
+       #print(f"1 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and prefix_computed:{prefix_computed} and self.is_mixed_chunk:{self.is_mixed_chunk}")
 
         num_mixed_running = running_bs if self.is_mixed_chunk else 0
-        print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and num_mixed_running:{num_mixed_running}")
-        print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size():{self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size()}")
-        print(f"4 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.max_prefill_tokens:{self.max_prefill_tokens}")
-        print(f"5 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.chunked_prefill_size:{self.chunked_prefill_size}")
+        #print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and num_mixed_running:{num_mixed_running}")
+        #print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size():{self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size()}")
+        #print(f"4 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.max_prefill_tokens:{self.max_prefill_tokens}")
+        #print(f"5 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.chunked_prefill_size:{self.chunked_prefill_size}")
         adder = PrefillAdder(
             self.tree_cache,
             self.token_to_kv_pool.available_size() + self.tree_cache.evictable_size(),
@@ -445,7 +446,7 @@ class ModelTpServer:
             adder.remove_running_tokens(self.running_batch, self.new_token_ratio)
 
         has_inflight = self.current_inflight_req is not None
-        print(f"7 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and has_inflight:{has_inflight}")
+        #print(f"7 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and has_inflight:{has_inflight}")
         if self.current_inflight_req is not None:
             #xiao 0823 这里很重要
             print(f"8 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.current_inflight_req is not None and prefix_computed:{prefix_computed}")
@@ -455,6 +456,8 @@ class ModelTpServer:
             self.current_inflight_req = adder.add_inflight_req(
                 self.current_inflight_req
             )
+        if len(self.waiting_queue) > 0:
+            print(f"8.2 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and len(self.waiting_queue):{len(self.waiting_queue)}")
 
         for req in self.waiting_queue:
             req.init_next_round_input(None if prefix_computed else self.tree_cache)
@@ -470,7 +473,8 @@ class ModelTpServer:
                 break
 
         can_run_list = adder.can_run_list
-        print(f"12 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and len(can_run_list):{len(can_run_list)}")
+        if len(can_run_list) > 0:
+            print(f"12 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and len(can_run_list):{len(can_run_list)}")
         if adder.new_inflight_req is not None:
             print(f"13 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and adder.new_inflight_req is not None")
             assert self.current_inflight_req is None
@@ -542,9 +546,10 @@ class ModelTpServer:
             if batch.extend_num_tokens != 0:
                 output = self.model_runner.forward(batch, ForwardMode.EXTEND) #xiao: 0827 call model 
                 next_token_ids = batch.sample(output.next_token_logits)
-
-                # Move logprobs to cpu
+                print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and type(output):{type(output)}")
+                # Move logprobs to cpu  
                 if output.next_token_logprobs is not None:
+                    print(f"4 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and output.next_token_logprobs is not None")
                     output.next_token_logprobs = output.next_token_logprobs[
                         torch.arange(len(next_token_ids), device=next_token_ids.device),
                         next_token_ids,

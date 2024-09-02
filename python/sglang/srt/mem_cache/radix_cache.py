@@ -84,10 +84,12 @@ class RadixCache(BasePrefixCache):
         value = []
         last_node = [self.root_node]
         self._match_prefix_helper(self.root_node, key, value, last_node) #xiao:0823 这个很重要
+        print(f"1.5 python/sglang/srt/mem_cache/radix_cache.py match_prefix: value:{value} and last_node:{last_node[0]}")
         if value:
             value = torch.concat(value)
         else:
             value = torch.tensor([], dtype=torch.int32)
+        print(f"2 python/sglang/srt/mem_cache/radix_cache.py match_prefix: value.shape:{value.shape} and last_node:{last_node[0]}")
         return value, last_node[0]
 
     def insert(self, key: List, value=None):

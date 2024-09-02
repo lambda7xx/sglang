@@ -536,8 +536,10 @@ class ModelRunner:
         if self.is_multimodal_model and forward_mode == ForwardMode.EXTEND:
             return self.forward_extend_multi_modal(batch)
         elif forward_mode == ForwardMode.DECODE:
+            print(f"3 python/sglang/srt/model_executor/model_runner.py forward and forward_mode is DECODE")
             return self.forward_decode(batch)
         elif forward_mode == ForwardMode.EXTEND:
+            print(f"4 python/sglang/srt/model_executor/model_runner.py forward and forward_mode is EXTEND")
             return self.forward_extend(batch)
         else:
             raise ValueError(f"Invaid forward mode: {forward_mode}")

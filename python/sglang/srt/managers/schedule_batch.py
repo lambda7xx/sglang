@@ -166,20 +166,23 @@ class Req:
 
     def init_next_round_input(self, tree_cache: Optional[BasePrefixCache] = None):
         self.fill_ids = self.origin_input_ids + self.output_ids
+        print(f"1 sglang/srt/meta.py Req::init_next_round_input: tree cache is {tree_cache}")
         if tree_cache is not None:
             self.prefix_indices, self.last_node = tree_cache.match_prefix(
                 rid=self.rid, key=self.adjust_max_prefix_ids()
             )#xiao: 找到最大的prefix长度
-        self.extend_input_len = len(self.fill_ids) - len(self.prefix_indices)
+        self.extend_input_len = len(self.fill_ids) - len(self.prefix_indices) #xiao: 设置extend_input_len, 是input+ output的长度减去prefix的长度，就是新需要extend的长度
 
     def adjust_max_prefix_ids(self):
         self.fill_ids = self.origin_input_ids + self.output_ids
+        print(f"0 sglang/srt/meta.py Req::adjust_max_prefix_ids: len(self.origin_input_ids)={len(self.origin_input_ids)} and len(self.output_ids)={len(self.output_ids)}")
         input_len = len(self.fill_ids)
         max_prefix_len = input_len
         print(f"1 sglang/srt/meta.py Req::adjust_max_prefix_ids: max_prefix_len={max_prefix_len} and self.sampling_params.max_new_tokens={self.sampling_params.max_new_tokens}")
+        #xiao: 0902 examples/quick_start/srt_example_chat.py这个代码，这里的self.sampling_params.max_new_tokens是8， 在哪里设置的
 
         if self.sampling_params.max_new_tokens > 0:
-            # Need at least one token to compute logits
+            # Need at least one token to compute logits xiao 0902
             max_prefix_len = min(max_prefix_len, input_len - 1)
             print(f"2 sglang/srt/meta.py Req::adjust_max_prefix_ids: self.sampling_params.max_new_tokens > 0 and max_prefix_len={max_prefix_len}")
 
@@ -400,7 +403,7 @@ class ScheduleBatch:
             [r.sampling_params.temperature for r in reqs],
             dtype=torch.float,
             device=device,
-        ).view(-1, 1)
+        ).view(-1, 1) #xiao 0902: self.temperatures 是干什么，这个sample_params.temperature是在哪里设置的很重要
         print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::batch_sampling_params, the self.temperatures.shape:{self.temperatures.shape}")
         self.top_ps = torch.tensor(
             [r.sampling_params.top_p for r in reqs], dtype=torch.float, device=device
@@ -444,12 +447,13 @@ class ScheduleBatch:
         # Allocate memory
         req_pool_indices_cpu = self.alloc_req_slots(bs) #xiao
         out_cache_loc = self.alloc_token_slots(extend_num_tokens) #xiao 
-        print(f"1.5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, type(out_cache_loc):{type(out_cache_loc)} and out_cache_loc.shape:{out_cache_loc.shape}")
+        print(f"1.5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, out_cache_loc.shape:{out_cache_loc.shape}")
         pt = 0
         for i, req in enumerate(reqs):
             req.req_pool_idx = req_pool_indices_cpu[i]
             pre_len, seq_len = len(req.prefix_indices), len(req.fill_ids)
             ext_len = seq_len - pre_len
+            #xiao 0902 这里的req.fill_ids 等于req.origin_input_ids + req.output_ids
             print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_extend, i:{i} and pre_len:{pre_len} and seq_len:{seq_len} and ext_len:{ext_len}")
             seq_lens.append(seq_len)
 
