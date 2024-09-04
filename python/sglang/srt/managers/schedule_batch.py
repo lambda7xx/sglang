@@ -198,9 +198,10 @@ class Req:
         return self.fill_ids[:max_prefix_len]
 
     # Based on https://github.com/vllm-project/vllm/blob/7a64d24aad69e4d2548aa0bf528d9fe63428ab01/vllm/transformers_utils/detokenizer.py#L194-L313
+    #xiao: 0904 不懂这个的意思
     def init_incremental_detokenize(self):
         first_iter = self.surr_offset is None or self.read_offset is None
-
+        print(f"1 sglang/srt/meta.py Req::init_incremental_detokenize: first_iter={first_iter}")
         if first_iter:
             self.read_offset = len(self.origin_input_ids_unpadded)
             self.surr_offset = max(
@@ -235,7 +236,7 @@ class Req:
     def check_finished(self):
         if self.finished():
             return
-
+        print(f"1 sglang/srt/meta.py Req::check_finished: len(self.output_ids)={len(self.output_ids)} and self.sampling_params.max_new_tokens={self.sampling_params.max_new_tokens}")
         if len(self.output_ids) >= self.sampling_params.max_new_tokens:
             self.finished_reason = FINISH_LENGTH(
                 length=self.sampling_params.max_new_tokens
@@ -243,7 +244,7 @@ class Req:
             return
 
         last_token_id = self.output_ids[-1]
-
+        #print(f"2 sglang/srt/meta.py Req::check_finished: last_token_id={last_token_id} and self.sampling_params.stop_token_ids={self.sampling_params.stop_token_ids}")
         matched_eos = last_token_id in self.sampling_params.stop_token_ids
 
         if self.tokenizer is not None:
@@ -709,7 +710,9 @@ class ScheduleBatch:
 
         self.reqs = [self.reqs[i] for i in unfinished_indices]
         new_indices = torch.tensor(unfinished_indices, dtype=torch.int32, device="cuda")
+        print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::filter_batch, the new_indices.shape:{new_indices.shape}")
         self.seq_lens = self.seq_lens[new_indices]
+        print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::filter_batch, the self.seq_lens.shape:{self.seq_lens.shape}")
         self.input_ids = None
         self.req_pool_indices = self.req_pool_indices[new_indices]
         self.position_ids_offsets = self.position_ids_offsets[new_indices]
@@ -733,18 +736,24 @@ class ScheduleBatch:
         # Penalizer orchestrator must be merged before Batch.reqs is merged. This is because
         # orchestrator.merge() depends on Batch.reqs during preparation of each penalizers, so it
         # needs to be called with pre-merged Batch.reqs.
-        self.penalizer_orchestrator.merge(other.penalizer_orchestrator)
-
+        self.penalizer_orchestrator.merge(other.penalizer_orchestrator) #xiao 0904 不懂这个penalizer_orchestrator
+        print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, len(other.reqs):{len(other.reqs)} and len(self.reqs):{len(self.reqs)}")
         self.reqs.extend(other.reqs)
-
+        print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, self.req_pool_indices.shape:{self.req_pool_indices.shape} and other.req_pool_indices.shape:{other.req_pool_indices.shape}")
         self.req_pool_indices = torch.concat(
             [self.req_pool_indices, other.req_pool_indices]
         )
+        print(f"3 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, after concat self.req_pool_indices.shape:{self.req_pool_indices.shape}")
+        print(f"4 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, self.seq_lens.shape:{self.seq_lens.shape} and other.seq_lens.shape:{other.seq_lens.shape}")
         self.seq_lens = torch.concat([self.seq_lens, other.seq_lens])
+        print(f"5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, after concat self.seq_lens.shape:{self.seq_lens.shape}")
+        print(f"6 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, self.position_ids_offsets.shape:{self.position_ids_offsets.shape} and other.position_ids_offsets.shape:{other.position_ids_offsets.shape}")
         self.position_ids_offsets = torch.concat(
             [self.position_ids_offsets, other.position_ids_offsets]
         )
+        print(f"7 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, after concat self.position_ids_offsets.shape:{self.position_ids_offsets.shape}")
         self.out_cache_loc = None
+        print(f"8 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, self.extend_num_tokens:{len(self.extend_num_tokens)} and other.extend_num_tokens:{len(other.extend_num_tokens)}")
         self.top_logprobs_nums.extend(other.top_logprobs_nums)
         self.return_logprob = any(req.return_logprob for req in self.reqs)
 
@@ -759,6 +768,7 @@ class ScheduleBatch:
 
         # logit_bias can be None
         if self.logit_bias is not None or other.logit_bias is not None:
+            print(f"9 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, "self.logit_bias is not None or other.logit_bias is not None)
             vocab_size = (
                 self.logit_bias.shape[1]
                 if self.logit_bias is not None
@@ -774,17 +784,21 @@ class ScheduleBatch:
                 )
             self.logit_bias = torch.concat([self.logit_bias, other.logit_bias])
 
+    #xiao: 0903 this 很重要
     def sample(self, logits: torch.Tensor):
+        print(f"1 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, the logits.shape:{logits.shape} and self.temperatures.shape:{self.temperatures.shape}")
         # TODO(lsyin): move this into a part of layer and run with CUDA Graph
         # Post process logits
         logits = logits.contiguous()
         logits.div_(self.temperatures)
+
         if self.logit_bias is not None:
             logits.add_(self.logit_bias)
 
         has_regex = any(req.regex_fsm is not None for req in self.reqs)
         if has_regex:
             allowed_mask = torch.empty_like(logits[0], dtype=torch.bool)
+            print(f"2 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, the allowed_mask.shape:{allowed_mask.shape}")
             for i, req in enumerate(self.reqs):
                 if req.regex_fsm is not None:
                     allowed_mask.zero_()
@@ -793,15 +807,18 @@ class ScheduleBatch:
                     ] = 1
                     logits[i].masked_fill_(~allowed_mask, float("-inf"))
 
-        logits = self.penalizer_orchestrator.apply(logits)
+        logits = self.penalizer_orchestrator.apply(logits)#xiao: 0903 这是干什么的很重要
 
         probs = torch.softmax(logits, dim=-1)
-
+        print(f"3 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, the probs.shape:{probs.shape}")
         if not global_server_args_dict["disable_flashinfer_sampling"]:
+            print(f"4 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, not global_server_args_dict disable_flashinfer_sampling ")
             max_top_k_round, batch_size = 32, probs.shape[0]
             uniform_samples = torch.rand(
                 (max_top_k_round, batch_size), device=probs.device
             )
+            print(f"5 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, the uniform_samples.shape:{uniform_samples.shape}")
+            #xiao 0903: 这是干什么的
             batch_next_token_ids, success = top_k_top_p_sampling_from_probs(
                 probs, uniform_samples, self.top_ks, self.top_ps
             )
@@ -809,7 +826,7 @@ class ScheduleBatch:
             # Here we provide a slower fallback implementation.
             batch_next_token_ids, success = top_k_top_p_sampling_from_probs_torch(
                 probs, self.top_ks, self.top_ps
-            )
+            ) #xiao 0903: 这是干什么的
 
         if not torch.all(success):
             logger.warning(f"Sampling failed. Fallback to top_k=1 strategy. {logits=}")
@@ -823,10 +840,11 @@ class ScheduleBatch:
             batch_next_token_ids_cpu = batch_next_token_ids.cpu().numpy()
             for i, req in enumerate(self.reqs):
                 if req.regex_fsm is not None:
+                    #xiao: 这里很重要
                     req.regex_fsm_state = req.regex_fsm.get_next_state(
                         req.regex_fsm_state, batch_next_token_ids_cpu[i]
                     )
-
+        #xiao: 0903 这里很重要
         self.penalizer_orchestrator.cumulate_output_tokens(batch_next_token_ids)
 
         return batch_next_token_ids

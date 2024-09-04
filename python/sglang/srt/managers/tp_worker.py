@@ -279,19 +279,22 @@ class ModelTpServer:
         if new_batch is not None:
             # Run a new prefill batch
             self.forward_prefill_batch(new_batch)
-
+            print(f"1 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None new_batch.is_empty():{new_batch.is_empty()}")
             if not new_batch.is_empty():
                 if self.running_batch is None:
                     self.running_batch = new_batch
                 else:
-                    self.running_batch.merge(new_batch)
+                    self.running_batch.merge(new_batch) #xiao 0904 这个函数干什么的
         else:
             # Run a decode batch
+            print(f"2 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is None and self.running_batch is not None")
             if self.running_batch is not None:
                 # Run a few decode batches continuously for reducing overhead
+                #xiao:0904 这个的注释不理解
+                print(f"3 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and global_config.num_continue_decode_steps:{global_config.num_continue_decode_steps}")
                 for _ in range(global_config.num_continue_decode_steps):
                     self.num_generated_tokens += len(self.running_batch.reqs)
-                    self.forward_decode_batch(self.running_batch)
+                    self.forward_decode_batch(self.running_batch) #xiao 0904 这个函数很重要
 
                     # Print stats
                     if self.tp_rank == 0 and self.decode_forward_ct % 40 == 0:
@@ -545,7 +548,7 @@ class ModelTpServer:
             # Forward and sample the next tokens
             if batch.extend_num_tokens != 0:
                 output = self.model_runner.forward(batch, ForwardMode.EXTEND) #xiao: 0827 call model 
-                next_token_ids = batch.sample(output.next_token_logits)
+                next_token_ids = batch.sample(output.next_token_logits) #xiao 0903: 这里很重要
                 print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and type(output):{type(output)}")
                 # Move logprobs to cpu  
                 if output.next_token_logprobs is not None:
@@ -554,7 +557,14 @@ class ModelTpServer:
                         torch.arange(len(next_token_ids), device=next_token_ids.device),
                         next_token_ids,
                     ].tolist()
+                    x1 =  output.next_token_logprobs[
+                        torch.arange(len(next_token_ids), device=next_token_ids.device),
+                        next_token_ids,
+                    ]
+                    print(f"5 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and x1:{x1.shape}")
                     output.input_token_logprobs = output.input_token_logprobs.tolist()
+                    x2 = output.input_token_logprobs
+                    print(f"6 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and x2:{x2.shape}")
                     output.normalized_prompt_logprobs = (
                         output.normalized_prompt_logprobs.tolist()
                     )
@@ -575,22 +585,25 @@ class ModelTpServer:
             for i, req in enumerate(batch.reqs):
                 if req is not self.current_inflight_req:
                     # Inflight reqs' prefill is not finished
+                    print(f"7 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and req is not self.current_inflight_req")
                     req.completion_tokens_wo_jump_forward += 1
                     req.output_ids.append(next_token_ids[i])
-                    req.check_finished()
+                    req.check_finished() #xiao 0903 检查是否达到了终止条件
 
                 if req.finished():
-                    self.tree_cache.cache_finished_req(req)
+                    self.tree_cache.cache_finished_req(req) #xiao 0903: 这里很重要
                 elif req not in decoding_reqs:
                     # To reduce overhead, only cache prefill reqs
-                    self.tree_cache.cache_unfinished_req(req)
+                    self.tree_cache.cache_unfinished_req(req) #xiao 0903: 这里很重要 不是很理解
 
+                print(f"8 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, eq is self.current_inflight_req:{req is self.current_inflight_req}")
                 if req is self.current_inflight_req:
                     # Inflight request would get a new req idx
                     self.req_to_token_pool.free(req.req_pool_idx)
-
+            
                 if req.return_logprob:
-                    self.add_logprob_return_values(i, req, pt, next_token_ids, output)
+                    print(f"9 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, req.return_logprob is true ")
+                    self.add_logprob_return_values(i, req, pt, next_token_ids, output) #xiao 0904 这里很重要
                     pt += req.extend_input_len
         else:
             assert batch.extend_num_tokens != 0
@@ -739,6 +752,7 @@ class ModelTpServer:
         output_rids = []
         output_meta_info = []
         output_finished_reason: List[BaseFinishReason] = []
+        print(f"1 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation:{self.model_runner.is_generation}")
         if self.model_runner.is_generation:
             output_vids = []
             decoded_texts = []
@@ -751,9 +765,10 @@ class ModelTpServer:
         unfinished_indices = []
 
         for i, req in enumerate(batch.reqs):
+            #xiao 0904 这个self.current_inflight_req是什么,有啥作用
             if not req.finished() and req is not self.current_inflight_req:
                 unfinished_indices.append(i)
-
+            #print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, ")
             if req.finished() or (
                 (
                     req.stream
@@ -762,18 +777,26 @@ class ModelTpServer:
                         or len(req.output_ids) == 1
                     )
                 )
-            ):
+            ):  
+                print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, req.finished(), req.stream:{req.stream}")
+                print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, req.finished(), len(req.output_ids):{len(req.output_ids)}")
                 output_rids.append(req.rid)
                 output_finished_reason.append(req.finished_reason)
                 if self.model_runner.is_generation:
                     output_vids.append(req.vid)
+                    print(f"4 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, req.vid:{req.vid}")
+                    print(f"5 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, req.decoded_text:{req.decoded_text}")
                     decoded_texts.append(req.decoded_text)
                     read_ids, read_offset = req.init_incremental_detokenize()
+                    print(f"6 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, read_ids:{read_ids}")
+                    print(f"7 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, read_offset:{read_offset}")
                     output_read_ids.append(read_ids)
                     output_read_offsets.append(read_offset)
+                    print(f"8 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, req.sampling_params.skip_special_tokens:{req.sampling_params.skip_special_tokens}")
                     output_skip_special_tokens.append(
                         req.sampling_params.skip_special_tokens
                     )
+                    print(f"9 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, req.sampling_params.spaces_between_special_tokens:{req.sampling_params.spaces_between_special_tokens}")
                     output_spaces_between_special_tokens.append(
                         req.sampling_params.spaces_between_special_tokens
                     )
@@ -784,7 +807,9 @@ class ModelTpServer:
                         "completion_tokens_wo_jump_forward": req.completion_tokens_wo_jump_forward,
                         "finish_reason": str(req.finished_reason),
                     }
+                    print(f"10 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, meta_info:{meta_info}")
                     if req.return_logprob:
+                        print(f"11 python/sglang/srt/managers/tp_worker.py ModelTpServer::handle_finished_requests, self.model_runner.is_generation, req.return_logprob is true")
                         (
                             meta_info["input_token_logprobs"],
                             meta_info["output_token_logprobs"],
