@@ -311,9 +311,9 @@ class LlamaForCausalLM(nn.Module):
         input_metadata: InputMetadata,
         input_embeds: torch.Tensor = None,
     ) -> LogitProcessorOutput:
-        print(f"1 python/sglang/srt/models/llama2.py LlamaForCausalLM.forward, input_ids.shape:{input_ids.shape}")
-        print(f"2 python/sglang/srt/models/llama2.py LlamaForCausalLM.forward, positions.shape:{positions.shape}")
-        print(f"3 python/sglang/srt/models/llama2.py LlamaForCausalLM.forward, input_metadata:{input_metadata}")
+        #print(f"1 python/sglang/srt/models/llama2.py LlamaForCausalLM.forward, input_ids.shape:{input_ids.shape}")
+        #print(f"2 python/sglang/srt/models/llama2.py LlamaForCausalLM.forward, positions.shape:{positions.shape}")
+        #print(f"3 python/sglang/srt/models/llama2.py LlamaForCausalLM.forward, input_metadata:{input_metadata}")
         hidden_states = self.model(input_ids, positions, input_metadata, input_embeds)
         return self.logits_processor(
             input_ids, hidden_states, self.lm_head.weight, input_metadata

@@ -497,7 +497,9 @@ class ModelRunner:
             batch,
             ForwardMode.DECODE,
         )
-
+        print(f"2 python/sglang/srt/model_executor/model_runner.py forward_decode and input_metadata:{input_metadata}")
+        print(f"3 python/sglang/srt/model_executor/model_runner.py forward_decode and batch.input_ids:{batch.input_ids.shape}")
+        print(f"4 python/sglang/srt/model_executor/model_runner.py forward_decode and input_metadata.positions:{input_metadata.positions.shape}")
         return self.model.forward(
             batch.input_ids, input_metadata.positions, input_metadata
         )
@@ -510,6 +512,9 @@ class ModelRunner:
             batch,
             forward_mode=ForwardMode.EXTEND,
         )
+        print(f"2 python/sglang/srt/model_executor/model_runner.py forward_extend and input_metadata:{input_metadata}")
+        print(f"3 python/sglang/srt/model_executor/model_runner.py forward_extend and batch.input_ids:{batch.input_ids.shape}")
+        print(f"4 python/sglang/srt/model_executor/model_runner.py forward_extend and input_metadata.positions:{input_metadata.positions.shape}")
         return self.model.forward(
             batch.input_ids, input_metadata.positions, input_metadata
         )
@@ -522,6 +527,9 @@ class ModelRunner:
             batch,
             forward_mode=ForwardMode.EXTEND,
         )
+        print(f"1 python/sglang/srt/model_executor/model_runner.py forward_extend_multi_modal and input_metadata:{input_metadata}")
+        print(f"2 python/sglang/srt/model_executor/model_runner.py forward_extend_multi_modal and batch.input_ids:{batch.input_ids.shape}")
+        print(f"3 python/sglang/srt/model_executor/model_runner.py forward_extend_multi_modal and input_metadata.positions:{input_metadata.positions.shape}")
         return self.model.forward(
             batch.input_ids,
             input_metadata.positions,

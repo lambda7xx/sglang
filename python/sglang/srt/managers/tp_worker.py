@@ -287,7 +287,7 @@ class ModelTpServer:
                     self.running_batch.merge(new_batch) #xiao 0904 这个函数干什么的
         else:
             # Run a decode batch
-            print(f"2 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is None and self.running_batch is not None")
+            #print(f"2 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is None and self.running_batch is not None")
             if self.running_batch is not None:
                 # Run a few decode batches continuously for reducing overhead
                 #xiao:0904 这个的注释不理解
@@ -690,8 +690,9 @@ class ModelTpServer:
         # Check if decode out of memory
         if not batch.check_decode_mem():
             old_ratio = self.new_token_ratio
-
+            print(f"1 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_decode_batch, old_ratio:{old_ratio}")
             retracted_reqs, new_token_ratio = batch.retract_decode()
+            #xiao 0904 这个retracted_reqs是啥,有啥用
             self.new_token_ratio = new_token_ratio
 
             logger.info(
@@ -708,14 +709,15 @@ class ModelTpServer:
 
         if not self.disable_regex_jump_forward:
             # Check for jump-forward
-            jump_forward_reqs = batch.check_for_jump_forward(self.model_runner)
+            print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_decode_batch, self.disable_regex_jump_forward is false")
+            jump_forward_reqs = batch.check_for_jump_forward(self.model_runner) #xiao 0904 这个函数很重要
             self.waiting_queue.extend(jump_forward_reqs)
             if batch.is_empty():
                 return
 
         # Update batch tensors
-        self.decode_forward_ct = (self.decode_forward_ct + 1) % (1 << 30)
-        batch.prepare_for_decode()
+        self.decode_forward_ct = (self.decode_forward_ct + 1) % (1 << 30) #xiao 0904 这个是啥,干什么用
+        batch.prepare_for_decode() #xiao 0904 准备decode, 在cpu上进行
 
         # Forward and sample the next tokens
         output = self.model_runner.forward(batch, ForwardMode.DECODE) #xiao: 0827, call model 

@@ -524,9 +524,10 @@ class ScheduleBatch:
 
         return False
 
+    #xiao 0904 很重要的函数 这个干什么的
     def retract_decode(self):
         sorted_indices = [i for i in range(len(self.reqs))]
-
+        print(f"0 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::retract_decode, the sorted_indices):{sorted_indices}")
         # TODO(lsyin): improve retraction policy for radix cache
         sorted_indices.sort(
             key=lambda i: (
@@ -535,6 +536,12 @@ class ScheduleBatch:
             ),
             reverse=True,
         )
+        print(f"0.5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::retract_decode, the sorted_indices):{sorted_indices}")
+        """
+        xiao 0904
+        优先按 output_ids 的长度进行降序排序。
+        如果 output_ids 长度相同，再按 origin_input_ids 的长度进行升序排序。
+        """
 
         retracted_reqs = []
         seq_lens_cpu = self.seq_lens.cpu().numpy()
@@ -552,7 +559,8 @@ class ScheduleBatch:
             idx = sorted_indices.pop()
             req = self.reqs[idx]
             retracted_reqs.append(req)
-
+            print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::retract_decode, the idx:{idx} and len(sorted_indices):{len(sorted_indices)}")
+            print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::retract_decode, type(self.tree_cache):{type(self.tree_cache)}")
             if isinstance(self.tree_cache, ChunkCache):
                 # ChunkCache does not have eviction
                 token_indices = self.req_to_token_pool.req_to_token[req.req_pool_idx][
@@ -563,6 +571,7 @@ class ScheduleBatch:
                 del self.tree_cache.entries[req.rid]
             else:
                 # TODO: apply more fine-grained retraction
+                #xiao:0904 不懂这里free的逻辑
                 last_uncached_pos = len(req.prefix_indices)
                 token_indices = self.req_to_token_pool.req_to_token[req.req_pool_idx][
                     last_uncached_pos : seq_lens_cpu[idx]
@@ -602,6 +611,7 @@ class ScheduleBatch:
 
         return retracted_reqs, new_estimate_ratio
 
+    #xiao 0904 这个函数很重要
     def check_for_jump_forward(self, model_runner):
         jump_forward_reqs = []
         filter_indices = [i for i in range(len(self.reqs))]
@@ -610,8 +620,10 @@ class ScheduleBatch:
             if req.jump_forward_map is not None:
                 jump_forward_bytes = req.jump_forward_map.jump_forward_byte(
                     req.regex_fsm_state
-                )
+                )#xiao 0904 这个jump_forward_bytes是干什么的,很重要
+                
                 if jump_forward_bytes is not None and len(jump_forward_bytes) > 1:
+                    print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::check_for_jump_forward, the len(jump_forward_bytes):{len(jump_forward_bytes)}")
                     suffix_bytes = []
                     continuation_range = range(0x80, 0xC0)
                     cur_state = req.regex_fsm_state
@@ -632,7 +644,7 @@ class ScheduleBatch:
                     cur_output_ids = req.output_ids
 
                     req.output_ids.extend(suffix_ids)
-                    decode_res, new_text = req.get_next_inc_detokenization()
+                    decode_res, new_text = req.get_next_inc_detokenization() #xiao 0904 这个get_next_inc_detokenization是干什么的
                     if not decode_res:
                         req.output_ids = cur_output_ids
                         continue
@@ -753,7 +765,7 @@ class ScheduleBatch:
         )
         print(f"7 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, after concat self.position_ids_offsets.shape:{self.position_ids_offsets.shape}")
         self.out_cache_loc = None
-        print(f"8 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, self.extend_num_tokens:{len(self.extend_num_tokens)} and other.extend_num_tokens:{len(other.extend_num_tokens)}")
+        print(f"8 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, self.top_logprobs_nums:{len(self.top_logprobs_nums)} and other.top_logprobs_nums:{len(other.top_logprobs_nums)}")
         self.top_logprobs_nums.extend(other.top_logprobs_nums)
         self.return_logprob = any(req.return_logprob for req in self.reqs)
 
@@ -768,7 +780,7 @@ class ScheduleBatch:
 
         # logit_bias can be None
         if self.logit_bias is not None or other.logit_bias is not None:
-            print(f"9 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, "self.logit_bias is not None or other.logit_bias is not None)
+            print(f"9 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::merge, self.logit_bias is not None or other.logit_bias is not None")
             vocab_size = (
                 self.logit_bias.shape[1]
                 if self.logit_bias is not None
