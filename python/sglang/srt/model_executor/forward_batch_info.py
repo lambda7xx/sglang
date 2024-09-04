@@ -119,6 +119,8 @@ class InputMetadata:
                     ),
                     device="cuda",
                 )
+                for i, req in enumerate(batch.reqs):
+                    print(f"1.5 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_positions, req i:{i} and batch.prefix_lens_cpu[i]:{batch.prefix_lens_cpu[i]} and len(req.fill_ids):{len(req.fill_ids)}")
                 print(f"2 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_positions, self.positions.shape: {self.positions.shape}")
             else:
                 # Deprecated
@@ -154,6 +156,8 @@ class InputMetadata:
                 len(r.fill_ids) - batch.prefix_lens_cpu[i]
                 for i, r in enumerate(batch.reqs)
             ]
+            for i, r in enumerate(batch.reqs):
+                print(f"2.5 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, i:{i} and r.fill_ids:{len(r.fill_ids)} and batch.prefix_lens_cpu[i]:{batch.prefix_lens_cpu[i]}")
             print(f"3 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, extend_lens_cpu: {extend_lens_cpu}")
             self.extend_seq_lens = torch.tensor(extend_lens_cpu, device="cuda")
             self.extend_start_loc = torch.zeros_like(self.seq_lens)
@@ -175,6 +179,17 @@ class InputMetadata:
                 )
                 for i, req in enumerate(batch.reqs)
             ]
+            for i, req in enumerate(batch.reqs):
+                if req.logprob_start_len < batch.prefix_lens_cpu[i]:
+                    x =      min(
+                        req.logprob_start_len - batch.prefix_lens_cpu[i],
+                        extend_lens_cpu[i] - 1,
+                    )
+                    print(f"6.3 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, i:{i} and x:{x}")
+                else:
+                    x = extend_lens_cpu[i] - 1
+                    print(f"6.4 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, i:{i} and x:{x}")
+                #print(f"6.5 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, i:{i} and x:{x}")
             print(f"7 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::compute_extend_infos, self.extend_seq_lens_cpu: {self.extend_seq_lens_cpu}")
 
     @classmethod

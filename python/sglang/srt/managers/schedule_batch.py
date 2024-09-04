@@ -805,6 +805,7 @@ class ScheduleBatch:
         logits.div_(self.temperatures)
 
         if self.logit_bias is not None:
+            print(f"1.5 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, the self.logit_bias.shape:{self.logit_bias.shape}")
             logits.add_(self.logit_bias)
 
         has_regex = any(req.regex_fsm is not None for req in self.reqs)
@@ -821,7 +822,7 @@ class ScheduleBatch:
 
         logits = self.penalizer_orchestrator.apply(logits)#xiao: 0903 这是干什么的很重要
 
-        probs = torch.softmax(logits, dim=-1)
+        probs = torch.softmax(logits, dim=-1)#xiao 0904 取softmax
         print(f"3 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, the probs.shape:{probs.shape}")
         if not global_server_args_dict["disable_flashinfer_sampling"]:
             print(f"4 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, not global_server_args_dict disable_flashinfer_sampling ")
@@ -839,6 +840,7 @@ class ScheduleBatch:
             batch_next_token_ids, success = top_k_top_p_sampling_from_probs_torch(
                 probs, self.top_ks, self.top_ps
             ) #xiao 0903: 这是干什么的
+            print(f"6 python/sglang/srt/model_executor/model_runner.py ScheduleBatch::sample, the batch_next_token_ids.shape:{batch_next_token_ids.shape} and success.shape:{success}")
 
         if not torch.all(success):
             logger.warning(f"Sampling failed. Fallback to top_k=1 strategy. {logits=}")
@@ -857,7 +859,7 @@ class ScheduleBatch:
                         req.regex_fsm_state, batch_next_token_ids_cpu[i]
                     )
         #xiao: 0903 这里很重要
-        self.penalizer_orchestrator.cumulate_output_tokens(batch_next_token_ids)
+        self.penalizer_orchestrator.cumulate_output_tokens(batch_next_token_ids) 
 
         return batch_next_token_ids
 

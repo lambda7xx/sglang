@@ -277,6 +277,7 @@ class ModelTpServer:
         new_batch = self.get_new_prefill_batch() #xiao: 0827 形成batch 
 
         if new_batch is not None:
+            print(f"0 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None")
             # Run a new prefill batch
             self.forward_prefill_batch(new_batch)
             print(f"1 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None new_batch.is_empty():{new_batch.is_empty()}")
@@ -538,6 +539,7 @@ class ModelTpServer:
         decoding_reqs = []
         print(f"1 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, the self.is_mixed_chunk:{self.is_mixed_chunk} and self.running_batch is not None:{self.running_batch is not None}")
         if self.is_mixed_chunk and self.running_batch is not None:
+            print(f"1.5 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch,  self.is_mixed_chunk and self.running_batch is not None")
             self.running_batch.prepare_for_decode() #xiao 0827 this is very important
             batch.mix_with_running(self.running_batch)#xiao 0827 this is very important
             decoding_reqs = self.running_batch.reqs
