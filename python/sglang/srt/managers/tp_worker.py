@@ -589,7 +589,8 @@ class ModelTpServer:
                     # Inflight reqs' prefill is not finished
                     print(f"7 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and req is not self.current_inflight_req")
                     req.completion_tokens_wo_jump_forward += 1
-                    req.output_ids.append(next_token_ids[i])
+                    print(f"7.2 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, i:{i} and next_token_ids[i]:{next_token_ids[i]}")
+                    req.output_ids.append(next_token_ids[i]) #xiao 将next_token_ids[i]加入到req.output_ids中
                     req.check_finished() #xiao 0903 检查是否达到了终止条件
 
                 if req.finished():

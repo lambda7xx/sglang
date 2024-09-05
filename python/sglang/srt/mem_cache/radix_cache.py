@@ -98,6 +98,7 @@ class RadixCache(BasePrefixCache):
 
         if value is None:
             value = [x for x in key]
+        print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::insert: key:{key} and value:{value}")
         return self._insert_helper(self.root_node, key, value)
 
     def cache_finished_req(self, req: Req, token_ids: Optional[List[int]] = None):
@@ -132,11 +133,11 @@ class RadixCache(BasePrefixCache):
 
         kv_indices = self.req_to_token_pool.req_to_token[
             req.req_pool_idx, : len(token_ids)
-        ]
+        ] #xiao 0904 为什么这么取？
 
         # Radix Cache takes one ref in memory pool
         new_prefix_len = self.insert(token_ids, kv_indices.clone())
-        print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::cache_unfinished_req, new_prefix_len:{new_prefix_len}")
+        print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::cache_unfinished_req, new_prefix_len:{new_prefix_len} and type(kv_indices):{type(kv_indices)} and len(req.prefix_indices):{len(req.prefix_indices)}")
         self.token_to_kv_pool.free(kv_indices[len(req.prefix_indices) : new_prefix_len])
 
         # The prefix indices could be updated, reuse it
@@ -224,16 +225,20 @@ class RadixCache(BasePrefixCache):
         print(f"2 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: node.children.keys():{node.children.keys()}")
         if key[0] in node.children.keys():
             child = node.children[key[0]]
+            print(f"2.5 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: child.key:{child.key} and key:{key}")
             prefix_len = _key_match(child.key, key) #xiao:0823 这个很重要
-            print(f"3 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len:{prefix_len} and child.key:{len(child.key)} ")
+            #print(f"3 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len:{prefix_len} and child.key:{len(child.key)} ")
             if prefix_len < len(child.key):
+                print(f"4 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len < len(child.key)")
                 new_node = self._split_node(child.key, child, prefix_len)
                 value.append(new_node.value)
                 last_node[0] = new_node
             else:
+                print(f"5 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len >= len(child.key) and child.value:{child.value}")
                 value.append(child.value)
                 last_node[0] = child
                 self._match_prefix_helper(child, key[prefix_len:], value, last_node)
+        self._print_helper(self.root_node, 0)
 
     def _split_node(self, key, child: TreeNode, split_len: int):
         # new_node -> child
@@ -254,7 +259,7 @@ class RadixCache(BasePrefixCache):
         node.last_access_time = time.time()
         if len(key) == 0:
             return 0
-
+        print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_insert_helper: key[0]:{key[0]} and node.children.keys():{node.children.keys()}")
         if key[0] in node.children.keys():
             child = node.children[key[0]]
             prefix_len = _key_match(child.key, key) #xiao: 求child.key和key的最长公共前缀

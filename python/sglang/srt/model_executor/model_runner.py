@@ -414,13 +414,14 @@ class ModelRunner:
             use_tensor_cores = True
         else:
             use_tensor_cores = False
-
+        print(f"1 python/sglang/srt/model_executor/model_runner.py init_flashinfer and use_tensor_cores:{use_tensor_cores} and self.sliding_window_size:{self.sliding_window_size}")
         if self.sliding_window_size is None:
             self.flashinfer_workspace_buffer = torch.empty(
                 global_config.flashinfer_workspace_size,
                 dtype=torch.uint8,
                 device="cuda",
             )
+            print(f"2 python/sglang/srt/model_executor/model_runner.py init_flashinfer and self.flashinfer_workspace_buffer:{self.flashinfer_workspace_buffer.shape}")
             self.flashinfer_prefill_wrapper_ragged = (
                 BatchPrefillWithRaggedKVCacheWrapper(
                     self.flashinfer_workspace_buffer, "NHD"
@@ -440,6 +441,7 @@ class ModelRunner:
                 dtype=torch.uint8,
                 device="cuda",
             )
+            print(f"3 python/sglang/srt/model_executor/model_runner.py init_flashinfer and self.sliding_window_size is not None and  self.flashinfer_workspace_buffer:{self.flashinfer_workspace_buffer.shape}")
             self.flashinfer_prefill_wrapper_ragged = None
             self.flashinfer_prefill_wrapper_paged = []
             self.flashinfer_decode_wrapper = []
@@ -463,7 +465,7 @@ class ModelRunner:
         if self.server_args.disable_cuda_graph or self.server_args.disable_flashinfer:
             self.cuda_graph_runner = None
             return
-
+        print(f"1 python/sglang/srt/model_executor/model_runner.py init_cuda_graphs Capture cuda graph begin")
         logger.info(
             f"[gpu={self.gpu_id}] Capture cuda graph begin. This can take up to several minutes."
         )

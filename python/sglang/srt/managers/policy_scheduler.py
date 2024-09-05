@@ -138,6 +138,7 @@ class PrefillAdder:
             )
         )
 
+    #xiao 0905 这是干什么
     def remove_running_tokens(
         self, running_batch: ScheduleBatch, new_token_ratio: float
     ):

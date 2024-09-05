@@ -238,6 +238,8 @@ class InputMetadata:
                 and model_runner.sliding_window_size is None
             ):
                 flashinfer_use_ragged = True
+                print(f"3 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::from_schedule_batch, flashinfer_use_ragged: {flashinfer_use_ragged}")
+            print(f"4 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::from_schedule_batch, init_flashinfer_handlers")
             ret.init_flashinfer_handlers(
                 model_runner, batch.prefix_lens_cpu, flashinfer_use_ragged
             )
@@ -264,9 +266,12 @@ class InputMetadata:
         flashinfer_use_ragged,
     ):
         if self.forward_mode != ForwardMode.DECODE:
+            
             prefix_lens = torch.tensor(prefix_lens_cpu, device="cuda")
+            print(f"1 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::init_flashinfer_handlers, DECODE, prefix_lens.shape: {prefix_lens.shape}")  
         else:
             prefix_lens = None
+            print(f"2 python/sglang/srt/model_executor/forward_batch_info.py InputMetadata::init_flashinfer_handlers, EXTEND prefix_lens: {prefix_lens}")
 
         update_flashinfer_indices(
             self.forward_mode,
@@ -304,17 +309,30 @@ def update_flashinfer_indices(
     num_kv_heads = model_runner.model_config.get_num_kv_heads(model_runner.tp_size)
     head_dim = model_runner.model_config.head_dim
     batch_size = len(req_pool_indices)
-
+    if forward_mode != ForwardMode.DECODE:
+        print(f"1 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, forward_mode != ForwardMode.DECODE")
+    else:
+        print(f"2 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, forward_mode == ForwardMode.DECODE")
+    print(f"3 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, num_qo_heads: {num_qo_heads}")
+    print(f"4 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, num_kv_heads: {num_kv_heads}")
+    print(f"5 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, head_dim: {head_dim}")
+    print(f"6 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, batch_size: {batch_size}")
+    print(f"7 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, flashinfer_use_ragged: {flashinfer_use_ragged}")
+    print(f"8 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, model_runner.sliding_window_size is None : {model_runner.sliding_window_size is None}")
     if model_runner.sliding_window_size is None:
         if flashinfer_use_ragged:
             paged_kernel_lens = prefix_lens
+            print(f"9 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, flashinfer_use_ragged true, paged_kernel_lens = prefix_lens  paged_kernel_lens: {paged_kernel_lens}")
         else:
             paged_kernel_lens = seq_lens
+            print(f"10 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, flashinfer_use_ragged false,paged_kernel_lens = seq_lens  paged_kernel_lens: {paged_kernel_lens}")
 
         kv_indptr = torch.zeros((batch_size + 1,), dtype=torch.int32, device="cuda")
-        kv_indptr[1:] = torch.cumsum(paged_kernel_lens, dim=0)
+        kv_indptr[1:] = torch.cumsum(paged_kernel_lens, dim=0)#计算 input 张量在指定维度 dim 上的累积和。
         req_pool_indices_cpu = req_pool_indices.cpu().numpy()
+        print(f"11 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, req_pool_indices_cpu: {req_pool_indices_cpu.shape}")
         paged_kernel_lens_cpu = paged_kernel_lens.cpu().numpy()
+        print(f"12 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, paged_kernel_lens_cpu: {paged_kernel_lens_cpu.shape}")
         kv_indices = torch.cat(
             [
                 model_runner.req_to_token_pool.req_to_token[
@@ -324,13 +342,21 @@ def update_flashinfer_indices(
             ],
             dim=0,
         ).contiguous()
+        for i in range(batch_size):
+            x =  model_runner.req_to_token_pool.req_to_token[
+                    req_pool_indices_cpu[i], : paged_kernel_lens_cpu[i]
+                ]
+            print(f"13 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, i:{i} and x.shape: {x.shape}")
         kv_last_page_len = torch.ones((batch_size,), dtype=torch.int32, device="cuda")
 
         if forward_mode == ForwardMode.DECODE:
             # CUDA graph uses different flashinfer_decode_wrapper
+            print(f"13.5 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, forward_mode == ForwardMode.DECODE")
             if flashinfer_decode_wrapper is None:
                 flashinfer_decode_wrapper = model_runner.flashinfer_decode_wrapper
-
+            print(f"13.6 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, kv_indptr.shape: {kv_indptr.shape}")
+            print(f"13.7 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, kv_indices.shape: {kv_indices.shape}")
+            print(f"13.8 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, kv_last_page_len.shape: {kv_last_page_len.shape}")
             flashinfer_decode_wrapper.end_forward()
             flashinfer_decode_wrapper.begin_forward(
                 kv_indptr,
@@ -343,6 +369,7 @@ def update_flashinfer_indices(
             )
         else:
             # extend part
+            print(f"14 python/sglang/srt/model_executor/forward_batch_info.py update_flashinfer_indices, extend part")
             qo_indptr = torch.zeros((batch_size + 1,), dtype=torch.int32, device="cuda")
             qo_indptr[1:] = torch.cumsum(seq_lens - prefix_lens, dim=0)
 
