@@ -724,7 +724,7 @@ class ModelTpServer:
 
         # Forward and sample the next tokens
         output = self.model_runner.forward(batch, ForwardMode.DECODE) #xiao: 0827, call model 
-        next_token_ids = batch.sample(output.next_token_logits)
+        next_token_ids = batch.sample(output.next_token_logits) #xiao 0906 必须弄懂这个sample 
 
         # Move logprobs to cpu
         if output.next_token_logprobs is not None:
@@ -748,6 +748,8 @@ class ModelTpServer:
                 req.output_token_logprobs.append(
                     (next_token_logprobs[i], next_token_id)
                 )
+                print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_decode_batch, type(next_token_logprobs[i]):{type(next_token_logprobs[i])}")
+                print(f"4 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_decode_batch, type(next_token_id):{type(next_token_id)}")
                 if req.top_logprobs_num > 0:
                     req.output_top_logprobs.append(output.output_top_logprobs[i])
 

@@ -617,6 +617,7 @@ class ScheduleBatch:
         filter_indices = [i for i in range(len(self.reqs))]
 
         for i, req in enumerate(self.reqs):
+            print(f"0 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::check_for_jump_forward, the i:{i} and req.jump_forward_map is not None:{req.jump_forward_map is not None}")
             if req.jump_forward_map is not None:
                 jump_forward_bytes = req.jump_forward_map.jump_forward_byte(
                     req.regex_fsm_state
@@ -694,12 +695,18 @@ class ScheduleBatch:
             input_ids = [
                 r.output_ids[-1] if r.output_ids else r.origin_input_ids[-1]
                 for r in self.reqs
-            ] #xiao 0827: 这是干什么的, 这里r.output_ids和r.origin_input_ids[-1]是什么意思
+            ] #xiao 0827: 这是干什么的, 这里r.output_ids和r.origin_input_ids[-1]是什么意思\
+            for r in self.reqs:
+                if r.output_ids:
+                    print(f"0 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode,r.output_ids:{r.output_ids[-1]}")
+                else:
+                    print(f"0.5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode,r.origin_input_ids[-1]:{r.origin_input_ids[-1]}")
             print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the len(input_ids):{len(input_ids)}")
         else:
             self.penalizer_orchestrator.cumulate_input_tokens(input_ids)
 
         self.input_ids = torch.tensor(input_ids, dtype=torch.int32, device="cuda")
+        print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.input_ids.shape:{self.input_ids.shape}")
         self.seq_lens.add_(1)
 
         # Alloc mem
