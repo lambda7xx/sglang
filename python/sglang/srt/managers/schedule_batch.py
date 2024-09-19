@@ -166,12 +166,13 @@ class Req:
 
     def init_next_round_input(self, tree_cache: Optional[BasePrefixCache] = None):
         self.fill_ids = self.origin_input_ids + self.output_ids
-        print(f"1 sglang/srt/meta.py Req::init_next_round_input: tree cache is {tree_cache}")
+        print(f"1 sglang/srt/meta.py Req::init_next_round_input: tree cache is {tree_cache} and len(self.fill_ids)={len(self.fill_ids)}")
         if tree_cache is not None:
             self.prefix_indices, self.last_node = tree_cache.match_prefix(
-                rid=self.rid, key=self.adjust_max_prefix_ids()
+                rid=self.rid, key=self.adjust_max_prefix_ids()ch
             )#xiao: 找到最大的prefix长度
         self.extend_input_len = len(self.fill_ids) - len(self.prefix_indices) #xiao: 设置extend_input_len, 是input+ output的长度减去prefix的长度，就是新需要extend的长度
+        print(f"2 sglang/srt/meta.py Req::init_next_round_input: self.extend_input_len={self.extend_input_len}")
 
     def adjust_max_prefix_ids(self):
         self.fill_ids = self.origin_input_ids + self.output_ids
@@ -492,19 +493,23 @@ class ScheduleBatch:
     def mix_with_running(self, running_batch: "ScheduleBatch"):
         # NOTE: prefix_indices is what has been cached, but we don't cache each decode step
         prefix_lens_cpu = [len(r.prefix_indices) for r in self.reqs]
+        print(f"1 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::mix_with_running, the prefix_lens_cpu:{prefix_lens_cpu}")
         prefix_lens_cpu.extend(
             [
                 len(r.origin_input_ids) + len(r.output_ids) - 1
                 for r in running_batch.reqs
             ]
         )
+        print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::mix_with_running, the prefix_lens_cpu:{prefix_lens_cpu}")
 
         for req in running_batch.reqs:
             req.fill_ids = req.origin_input_ids + req.output_ids
             req.extend_input_len = 1
 
         input_ids = torch.cat([self.input_ids, running_batch.input_ids])
+        print(f"3 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::mix_with_running, the input_ids.shape:{input_ids.shape}")
         out_cache_loc = torch.cat([self.out_cache_loc, running_batch.out_cache_loc])
+        print(f"4 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::mix_with_running, the out_cache_loc.shape:{out_cache_loc.shape}")
         extend_num_tokens = self.extend_num_tokens + running_batch.batch_size()
         self.merge(running_batch)
         self.input_ids = input_ids
@@ -706,16 +711,19 @@ class ScheduleBatch:
             self.penalizer_orchestrator.cumulate_input_tokens(input_ids)
 
         self.input_ids = torch.tensor(input_ids, dtype=torch.int32, device="cuda")
-        print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.input_ids.shape:{self.input_ids.shape}")
-        self.seq_lens.add_(1)
-
+        print(f"2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.input_ids.shape:{self.input_ids.shape} and self.seq_lens.shape:{self.seq_lens.shape}")
+        self.seq_lens.add_(1) #xiao 0912 这是干什么
+        print(f"3 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.seq_lens.shape:{self.seq_lens.shape}")
         # Alloc mem
         bs = self.batch_size()
-        self.out_cache_loc = self.alloc_token_slots(bs)
-
+        self.out_cache_loc = self.alloc_token_slots(bs) #xiao: 0912 这个很重要
+        print(f"3.2 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.out_cache_loc:{self.out_cache_loc}")
+        print(f"3.5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.seq_lens:{self.seq_lens}")
+        print(f"4 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.out_cache_loc.shape:{self.out_cache_loc.shape}")
+        print(f"5 python/sglang/srt/managers/schedule_batch.py ScheduleBatch::prepare_for_decode, the self.req_to_token_pool.req_to_token.shape:{self.req_to_token_pool.req_to_token.shape}")
         self.req_to_token_pool.req_to_token[
             self.req_pool_indices, self.seq_lens - 1
-        ] = self.out_cache_loc
+        ] = self.out_cache_loc #xiao 0912 这个很重要 记录req的token位置
 
     def filter_batch(self, unfinished_indices: List[int]):
         if unfinished_indices is None or len(unfinished_indices) == 0:

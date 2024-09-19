@@ -280,12 +280,15 @@ class ModelTpServer:
             print(f"0 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None")
             # Run a new prefill batch
             self.forward_prefill_batch(new_batch)
-            print(f"1 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None new_batch.is_empty():{new_batch.is_empty()}")
+            print(f"1 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None and  new_batch.is_empty():{new_batch.is_empty()}")
             if not new_batch.is_empty():
                 if self.running_batch is None:
                     self.running_batch = new_batch
+                    print(f"2 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None and self.running_batch is None")
                 else:
+                    print(f"2.5 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None and len(self.runnning_batch):{len(self.running_batch.reqs)}")
                     self.running_batch.merge(new_batch) #xiao 0904 这个函数干什么的
+                    print(f"3 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is not None and self.running_batch is not None")
         else:
             # Run a decode batch
             #print(f"2 python/sglang/srt/managers/tp_worker.py forward_step:  self.tp_rank:{self.tp_rank} and new_batch is None and self.running_batch is not None")
@@ -354,6 +357,7 @@ class ModelTpServer:
         recv_req: Union[TokenizedGenerateReqInput, TokenizedEmbeddingReqInput],
     ):
         print(f"1 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and type(recv_req.input_text):{type(recv_req.input_text)} and type(recv_req.input_ids):{type(recv_req.input_ids)}")
+        print(f"1.5 python/sglang/srt/managers/tp_worker.py handle_generate_request:  self.tp_rank:{self.tp_rank} and recv_req.input_text:{recv_req.input_text}")
         req = Req(recv_req.rid, recv_req.input_text, recv_req.input_ids) #xiao 0823 这里是初始化Req
         req.tokenizer = self.tokenizer
         req.sampling_params = recv_req.sampling_params
@@ -444,8 +448,9 @@ class ModelTpServer:
             self.chunked_prefill_size,
             num_mixed_running,
         )
-        
+        #print(f"5.5 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.running_batch is not None:{self.running_batch is not None}")
         if self.running_batch is not None:
+            #todo xiao 0911 这里很严重
             print(f"6 python/sglang/srt/managers/tp_worker.py ModelTpServer::get_new_prefill_batch: self.tp_rank:{self.tp_rank} and self.running_batch is not None")
             adder.remove_running_tokens(self.running_batch, self.new_token_ratio)
 
@@ -546,12 +551,14 @@ class ModelTpServer:
             self.running_batch = None
         
         if self.model_runner.is_generation:
-            print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and batch.extend_num_tokens:{batch.extend_num_tokens}")
+            print(f"2 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and batch.extend_num_tokens:{batch.extend_num_tokens} ")
+            if self.running_batch is not None:
+                print(f"2.5 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and len(self.running_batch.reqs):{len(self.running_batch.reqs)}")
             # Forward and sample the next tokens
             if batch.extend_num_tokens != 0:
                 output = self.model_runner.forward(batch, ForwardMode.EXTEND) #xiao: 0827 call model 
                 next_token_ids = batch.sample(output.next_token_logits) #xiao 0903: 这里很重要
-                print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and type(output):{type(output)}")
+                print(f"3 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and type(output):{type(output)} and output.next_token_logprobs is not None:{output.next_token_logprobs is not None}")
                 # Move logprobs to cpu  
                 if output.next_token_logprobs is not None:
                     print(f"4 python/sglang/srt/managers/tp_worker.py ModelTpServer::forward_prefill_batch, self.model_runner.is_generation and output.next_token_logprobs is not None")

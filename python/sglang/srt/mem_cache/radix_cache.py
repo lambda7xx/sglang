@@ -229,7 +229,7 @@ class RadixCache(BasePrefixCache):
             prefix_len = _key_match(child.key, key) #xiao:0823 这个很重要
             #print(f"3 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len:{prefix_len} and child.key:{len(child.key)} ")
             if prefix_len < len(child.key):
-                print(f"4 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len < len(child.key)")
+                print(f"4 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_match_prefix_helper: prefix_len < len(child.key) and prefix_len:{prefix_len}")
                 new_node = self._split_node(child.key, child, prefix_len)
                 value.append(new_node.value)
                 last_node[0] = new_node
@@ -248,9 +248,13 @@ class RadixCache(BasePrefixCache):
         new_node.lock_ref = child.lock_ref
         new_node.key = child.key[:split_len]
         new_node.value = child.value[:split_len]
+        print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_split_node: and split_len:{split_len} key[split_len:][0]:{key[split_len:][0]} ")
+        print(f"1.5 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_split_node: child.key:{child.key} and child.value:{child.value}")
+        print(f"2 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_split_node: new_node.key:{new_node.key} and new_node.value:{new_node.value}")
         child.parent = new_node
         child.key = child.key[split_len:]
         child.value = child.value[split_len:]
+        print(f"3 python/sglang/srt/mem_cache/radix_cache.py RadixCache::_split_node: child.key:{child.key} and child.value:{child.value}")
         new_node.parent.children[key[:split_len][0]] = new_node
         return new_node
 

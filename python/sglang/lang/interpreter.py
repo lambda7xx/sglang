@@ -357,7 +357,7 @@ class StreamExecutor:
         self.is_finished = True
 
     def _execute(self, other):
-        print(f"1 python/sglang/srt/interpreter.py _execute: type(other):{type(other)} and other:{other}")
+        print(f"1 python/sglang/srt/interpreter.py _execute: type(other):{type(other)} and other:{other} ")
 
         if isinstance(other, str):
             other = SglConstantText(other)

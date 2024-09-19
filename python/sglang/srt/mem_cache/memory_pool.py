@@ -79,6 +79,7 @@ class BaseTokenToKVPool:
         print(f"1 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() buffer_len: {buffer_len} and need_size: {need_size}")
         if need_size <= buffer_len:
             select_index = self.prefetch_buffer[:need_size]
+            print(f"1.5 python/sglang/srt/mem_cache/memory_pool.py BaseTokenToKVPool::alloc() select_index.shape: {select_index.shape}")
             self.prefetch_buffer = self.prefetch_buffer[need_size:]
             return select_index
 
@@ -134,10 +135,12 @@ class MHATokenToKVPool(BaseTokenToKVPool):
             torch.empty((size + 1, head_num, head_dim), dtype=dtype, device="cuda")
             for _ in range(layer_num)
         ]
+        print(f"1 python/sglang/srt/mem_cache/memory_pool.py MHATokenToKVPool::init() self.k_buffe.shape: {self.k_buffer.shape}")
         self.v_buffer = [
             torch.empty((size + 1, head_num, head_dim), dtype=dtype, device="cuda")
             for _ in range(layer_num)
         ]
+        print(f"2 python/sglang/srt/mem_cache/memory_pool.py MHATokenToKVPool::init() self.v_buffe.shape: {self.v_buffer.shape}")
 
     def get_key_buffer(self, layer_id: int):
         return self.k_buffer[layer_id]

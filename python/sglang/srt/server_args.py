@@ -49,7 +49,7 @@ class ServerArgs:
     max_running_requests: Optional[int] = None
     max_num_reqs: Optional[int] = None
     max_total_tokens: Optional[int] = None
-    chunked_prefill_size: int = 8192
+    chunked_prefill_size: int = 256 #8192 Xiao
     max_prefill_tokens: int = 16384
     schedule_policy: str = "lpm"
     schedule_conservativeness: float = 1.0
@@ -81,7 +81,7 @@ class ServerArgs:
     disable_cuda_graph: bool = False
     disable_cuda_graph_padding: bool = False
     disable_disk_cache: bool = False
-    enable_mixed_chunk: bool = False
+    enable_mixed_chunk: bool = True# False
     enable_torch_compile: bool = False
     enable_p2p_check: bool = False
     enable_mla: bool = False

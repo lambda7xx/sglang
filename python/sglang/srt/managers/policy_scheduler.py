@@ -196,6 +196,7 @@ class PrefillAdder:
             self.rem_total_tokens += delta
     #xiao:0823 这个函数很重要
     def add_one_req(self, req: Req):
+        print(f"0 req.extend_input_len:{req.extend_input_len} and req.sample_params.max_new_tokens:{req.sampling_params.max_new_tokens}")
         total_tokens = req.extend_input_len + min(
             req.sampling_params.max_new_tokens, CLIP_MAX_NEW_TOKENS
         )
@@ -242,7 +243,10 @@ class PrefillAdder:
                     return False
 
                 req.extend_input_len = trunc_len
+                print(f"8 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  before len(req.fill_ids):{req.fill_ids}")
                 req.fill_ids = req.fill_ids[: len(req.prefix_indices) + trunc_len]
+                print(f"9 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  after len(req.fill_ids):{len(req.fill_ids)}")
+                print(f"10 python/sglang/srt/managers/policy_scheduler.py PrefillAdder::add_one_req:  prefix_len:{prefix_len} and trunc_len:{trunc_len}")
                 self.can_run_list.append(req)
                 self.new_inflight_req = req
                 self.tree_cache.inc_lock_ref(req.last_node)

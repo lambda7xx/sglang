@@ -47,17 +47,22 @@ class RadixAttention(nn.Module):
         self.head_dim = head_dim
         self.qk_head_dim = head_dim
         self.v_head_dim = v_head_dim if v_head_dim != -1 else head_dim
+        print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention __init__ self.tp_q_head_num: {self.tp_q_head_num} and self.tp_k_head_num: {self.tp_k_head_num} and self.tp_v_head_num: {self.tp_v_head_num} ")
+        print(f"2  python/sglang/srt/layers/radix_attention.py RadixAttention __init__ self.head_dim: {self.head_dim} and self.qk_head_dim: {self.qk_head_dim} and self.v_head_dim: {self.v_head_dim} ")
         self.scaling = scaling
         self.layer_id = layer_id
         self.sliding_window_size = sliding_window_size if sliding_window_size else -1
+        print(f"3 python/sglang/srt/layers/radix_attention.py RadixAttention __init__ self.scaling: {self.scaling} and self.layer_id: {self.layer_id} and self.sliding_window_size: {self.sliding_window_size} ")
 
         if (
             not global_server_args_dict.get("disable_flashinfer", False)
             and self.qk_head_dim == self.v_head_dim
         ):
+            print(f"4 python/sglang/srt/layers/radix_attention.py RadixAttention __init__  we use flashinfer")
             self.extend_forward = self.extend_forward_flashinfer
             self.decode_forward = self.decode_forward_flashinfer
         else:
+            print(f"5 python/sglang/srt/layers/radix_attention.py RadixAttention __init__  we use triton")
             self.extend_forward = self.extend_forward_triton
             self.decode_forward = self.decode_forward_triton
 
@@ -118,18 +123,23 @@ class RadixAttention(nn.Module):
 
     def extend_forward_flashinfer(self, q, k, v, input_metadata: InputMetadata):
         # using two wrappers is unnecessary in the current PR, but are prepared for future PRs
-        prefill_wrapper_paged = input_metadata.flashinfer_prefill_wrapper_paged
+        prefill_wrapper_paged = input_metadata.flashinfer_prefill_wrapper_paged #TODO: xiao 0919 如何设置这个input_metadata.flashinfer_prefill_wrapper_paged？
+        print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer prefill_wrapper_paged: {prefill_wrapper_paged} ")
+        print(f"2 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer self.sliding_window_size:{self.sliding_window_size}")
         if self.sliding_window_size != -1:
             prefill_wrapper_paged = prefill_wrapper_paged[0]
         else:
             if isinstance(prefill_wrapper_paged, list):
-                prefill_wrapper_paged = prefill_wrapper_paged[1]
-
+                prefill_wrapper_paged = prefill_wrapper_paged[1] 
+        print(f"3 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer input_metadata.flashinfer_use_ragge:{input_metadata.flashinfer_use_ragged} ")
         if not input_metadata.flashinfer_use_ragged:
+            print(f"3.5 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer not input_metadata.flashinfer_use_ragged")
             if k is not None:
                 assert v is not None
+                print(f"4 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer k.shape: {k.shape} and v.shape: {v.shape} ")
                 self.store_kv_cache(k, v, input_metadata)
-
+            
+            print(f"5 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer q.shape: {q.shape} ")
             o = prefill_wrapper_paged.forward(
                 q.contiguous().view(-1, self.tp_q_head_num, self.head_dim),
                 input_metadata.token_to_kv_pool.get_kv_buffer(self.layer_id),
@@ -139,6 +149,8 @@ class RadixAttention(nn.Module):
                 logits_soft_cap=self.logit_cap,
             )
         else:
+            print(f"6 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer input_metadata.flashinfer_use_ragged")
+            print(f"7 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer q.shape:{q.shape} and k.shape:{k.shape} and v.shape:{v.shape} ")
             o1, s1 = (
                 input_metadata.flashinfer_prefill_wrapper_ragged.forward_return_lse(
                     q.contiguous().view(-1, self.tp_q_head_num, self.head_dim),
@@ -151,8 +163,10 @@ class RadixAttention(nn.Module):
             )
 
             if input_metadata.extend_no_prefix:
+                print(f"8 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer input_metadata.extend_no_prefix")
                 o = o1
             else:
+                print(f"9 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer not input_metadata.extend_no_prefix")
                 o2, s2 = prefill_wrapper_paged.forward_return_lse(
                     q.contiguous().view(-1, self.tp_q_head_num, self.head_dim),
                     input_metadata.token_to_kv_pool.get_kv_buffer(self.layer_id),
@@ -161,13 +175,13 @@ class RadixAttention(nn.Module):
                     logits_soft_cap=self.logit_cap,
                 )
 
-                o, _ = merge_state(o1, s1, o2, s2)
+                o, _ = merge_state(o1, s1, o2, s2) #xiao: 分段计算prefill, 然后合并结果
 
             self.store_kv_cache(k, v, input_metadata)
 
             if input_metadata.total_num_tokens >= global_config.layer_sync_threshold:
                 torch.cuda.synchronize()
-
+        print(f"10 python/sglang/srt/layers/radix_attention.py RadixAttention extend_forward_flashinfer o.shape: {o.shape} ")
         return o.view(-1, self.tp_q_head_num * self.head_dim)
 
     def decode_forward_flashinfer(self, q, k, v, input_metadata: InputMetadata):
@@ -196,14 +210,20 @@ class RadixAttention(nn.Module):
             assert v is not None
             k = k.view(-1, self.tp_k_head_num, self.qk_head_dim)
             v = v.view(-1, self.tp_v_head_num, self.v_head_dim)
+            print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention forward k.shape: {k.shape} and v.shape: {v.shape} ")
 
         if input_metadata.forward_mode == ForwardMode.EXTEND:
+            print(f"2 python/sglang/srt/layers/radix_attention.py RadixAttention forward ForwardMode.EXTEND ")
             return self.extend_forward(q, k, v, input_metadata)
         elif input_metadata.forward_mode == ForwardMode.DECODE:
+            print(f"3 python/sglang/srt/layers/radix_attention.py RadixAttention forward ForwardMode.DECODE ")
             return self.decode_forward(q, k, v, input_metadata)
 
     def store_kv_cache(self, cache_k, cache_v, input_metadata: InputMetadata):
         k_cache = input_metadata.token_to_kv_pool.get_key_buffer(self.layer_id)
         v_cache = input_metadata.token_to_kv_pool.get_value_buffer(self.layer_id)
+        print(f"0 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache k_cache.device: {k_cache.device} and v_cache.device: {v_cache.device} ")
+        print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache k_cache.shape: {k_cache.shape} and v_cache.shape: {v_cache.shape} ")
         k_cache[input_metadata.out_cache_loc] = cache_k
+        print(f"2 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache input_metadata.out_cache_loc.shape: {input_metadata.out_cache_loc.shape} ")
         v_cache[input_metadata.out_cache_loc] = cache_v
