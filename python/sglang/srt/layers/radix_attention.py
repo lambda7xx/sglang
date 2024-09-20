@@ -210,20 +210,20 @@ class RadixAttention(nn.Module):
             assert v is not None
             k = k.view(-1, self.tp_k_head_num, self.qk_head_dim)
             v = v.view(-1, self.tp_v_head_num, self.v_head_dim)
-            print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention forward k.shape: {k.shape} and v.shape: {v.shape} ")
+            print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention forward self.layer_id:{self.layer_id} k.shape: {k.shape} and v.shape: {v.shape} ")
 
         if input_metadata.forward_mode == ForwardMode.EXTEND:
-            print(f"2 python/sglang/srt/layers/radix_attention.py RadixAttention forward ForwardMode.EXTEND ")
+            print(f"2 python/sglang/srt/layers/radix_attention.py RadixAttention forward self.layer_id:{self.layer_id} ForwardMode.EXTEND ")
             return self.extend_forward(q, k, v, input_metadata)
         elif input_metadata.forward_mode == ForwardMode.DECODE:
-            print(f"3 python/sglang/srt/layers/radix_attention.py RadixAttention forward ForwardMode.DECODE ")
+            print(f"3 python/sglang/srt/layers/radix_attention.py RadixAttention forward  self.layer_id:{self.layer_id} ForwardMode.DECODE ")
             return self.decode_forward(q, k, v, input_metadata)
 
     def store_kv_cache(self, cache_k, cache_v, input_metadata: InputMetadata):
         k_cache = input_metadata.token_to_kv_pool.get_key_buffer(self.layer_id)
         v_cache = input_metadata.token_to_kv_pool.get_value_buffer(self.layer_id)
-        print(f"0 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache k_cache.device: {k_cache.device} and v_cache.device: {v_cache.device} ")
-        print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache k_cache.shape: {k_cache.shape} and v_cache.shape: {v_cache.shape} ")
+        print(f"0 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache self.layer_id:{self.layer_id} k_cache.device: {k_cache.device} and v_cache.device: {v_cache.device} ")
+        print(f"1 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache self.layer_id:{self.layer_id} k_cache.shape: {k_cache.shape} and v_cache.shape: {v_cache.shape} ")
         k_cache[input_metadata.out_cache_loc] = cache_k
-        print(f"2 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache input_metadata.out_cache_loc.shape: {input_metadata.out_cache_loc.shape} ")
+        print(f"2 python/sglang/srt/layers/radix_attention.py RadixAttention store_kv_cache self.layer_id:{self.layer_id} input_metadata.out_cache_loc.shape: {input_metadata.out_cache_loc.shape} ")
         v_cache[input_metadata.out_cache_loc] = cache_v

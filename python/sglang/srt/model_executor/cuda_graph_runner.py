@@ -92,6 +92,10 @@ class CudaGraphRunner:
         disable_padding: bool,
     ):
         self.model_runner = model_runner
+        print(f"1 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner init max_batch_size_to_capture: {max_batch_size_to_capture}")
+        print(f"2 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner init use_torch_compile: {use_torch_compile}")
+        print(f"3 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner init disable_padding: {disable_padding}")
+
         self.graphs = {}
         self.input_buffers = {}
         self.output_buffers = {}
@@ -144,11 +148,15 @@ class CudaGraphRunner:
             ]
 
         self.compile_bs = [1, 2, 4, 8, 16, 24, 32] if use_torch_compile else []
+        print(f"4 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner init self.compile_bs: {self.compile_bs}")
 
         if use_torch_compile:
             set_torch_compile_config()
 
     def can_run(self, batch_size):
+        print(f"1 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner can_run self.disable_padding:{self.disable_padding}")
+        print(f"2 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner can_run batch_size:{batch_size} and self.graphs:{self.graphs}")
+        print(f"3 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner can_run self.max_bs:{self.max_bs}")
         if self.disable_padding:
             return batch_size in self.graphs
         else:
@@ -156,6 +164,7 @@ class CudaGraphRunner:
 
     def capture(self, batch_size_list):
         self.batch_size_list = batch_size_list
+        print(f"1 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner capture batch_size_list:{batch_size_list}")
         with graph_capture() as graph_capture_context:
             self.stream = graph_capture_context.stream
             for bs in batch_size_list:
@@ -176,6 +185,7 @@ class CudaGraphRunner:
                     self.flashinfer_handlers[bs] = flashinfer_handler
 
     def capture_one_batch_size(self, bs, forward):
+        print(f"0 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner capture_one_batch_size bs:{bs}")
         graph = torch.cuda.CUDAGraph()
         stream = self.stream
 
@@ -195,6 +205,8 @@ class CudaGraphRunner:
             use_tensor_cores = True
         else:
             use_tensor_cores = False
+        print(f"1 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner capture_one_batch_size use_tensor_cores:{use_tensor_cores}")
+        print(f"2 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner capture_one_batch_size self.model_runner.sliding_window_size:{self.model_runner.sliding_window_size}")
         if self.model_runner.sliding_window_size is None:
             flashinfer_decode_wrapper = BatchDecodeWithPagedKVCacheWrapper(
                 self.flashinfer_workspace_buffer,
@@ -267,6 +279,7 @@ class CudaGraphRunner:
         self.model_runner.tp_group.barrier()
 
         self.graph_memory_pool = graph.pool()
+        print(f"3 python/sglang/srt/model_executor/cuda_graph_runner.py CudaGraphRunner capture_one_batch_size self.graph_memory_pool:{self.graph_memory_pool}")
         return graph, None, out, flashinfer_decode_wrapper
 
     def replay(self, batch: ScheduleBatch):

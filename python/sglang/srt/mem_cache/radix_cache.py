@@ -98,7 +98,7 @@ class RadixCache(BasePrefixCache):
 
         if value is None:
             value = [x for x in key]
-        print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::insert: key:{key} and value:{value}")
+        # print(f"1 python/sglang/srt/mem_cache/radix_cache.py RadixCache::insert: key:{key} and value:{value}")
         return self._insert_helper(self.root_node, key, value)
 
     def cache_finished_req(self, req: Req, token_ids: Optional[List[int]] = None):

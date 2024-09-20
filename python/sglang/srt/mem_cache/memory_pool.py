@@ -32,6 +32,7 @@ class ReqToTokenPool:
         self.req_to_token = torch.empty(
             (size, max_context_len), dtype=torch.int32, device="cuda"
         )
+        print(f"1 python/sglang/srt/mem_cache/memory_pool.py ReqToTokenPool::init() self.req_to_token.shape: {self.req_to_token.shape}")
 
     def alloc(self, need_size: int) -> List[int]:
         if need_size > len(self.free_slots):
@@ -135,12 +136,12 @@ class MHATokenToKVPool(BaseTokenToKVPool):
             torch.empty((size + 1, head_num, head_dim), dtype=dtype, device="cuda")
             for _ in range(layer_num)
         ]
-        print(f"1 python/sglang/srt/mem_cache/memory_pool.py MHATokenToKVPool::init() self.k_buffe.shape: {self.k_buffer.shape}")
+        print(f"1 python/sglang/srt/mem_cache/memory_pool.py MHATokenToKVPool::init() self.k_buffe[0].shape: {self.k_buffer[0].shape}")
         self.v_buffer = [
             torch.empty((size + 1, head_num, head_dim), dtype=dtype, device="cuda")
             for _ in range(layer_num)
         ]
-        print(f"2 python/sglang/srt/mem_cache/memory_pool.py MHATokenToKVPool::init() self.v_buffe.shape: {self.v_buffer.shape}")
+        print(f"2 python/sglang/srt/mem_cache/memory_pool.py MHATokenToKVPool::init() self.v_buffe[0].shape: {self.v_buffer[0].shape}")
 
     def get_key_buffer(self, layer_id: int):
         return self.k_buffer[layer_id]

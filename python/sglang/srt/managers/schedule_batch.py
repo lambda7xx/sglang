@@ -169,7 +169,7 @@ class Req:
         print(f"1 sglang/srt/meta.py Req::init_next_round_input: tree cache is {tree_cache} and len(self.fill_ids)={len(self.fill_ids)}")
         if tree_cache is not None:
             self.prefix_indices, self.last_node = tree_cache.match_prefix(
-                rid=self.rid, key=self.adjust_max_prefix_ids()ch
+                rid=self.rid, key=self.adjust_max_prefix_ids()
             )#xiao: 找到最大的prefix长度
         self.extend_input_len = len(self.fill_ids) - len(self.prefix_indices) #xiao: 设置extend_input_len, 是input+ output的长度减去prefix的长度，就是新需要extend的长度
         print(f"2 sglang/srt/meta.py Req::init_next_round_input: self.extend_input_len={self.extend_input_len}")

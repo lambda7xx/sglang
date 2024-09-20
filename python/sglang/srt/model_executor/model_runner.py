@@ -356,7 +356,7 @@ class ModelRunner:
                 ),
                 5120,
             )
-
+        print(f"1 python/sglang/srt/model_executor/model_runner.py init_memory_pool and max_num_reqs:{max_num_reqs}")
         self.req_to_token_pool = ReqToTokenPool(
             max_num_reqs,
             self.model_config.context_len + 8,
@@ -470,6 +470,8 @@ class ModelRunner:
             f"[gpu={self.gpu_id}] Capture cuda graph begin. This can take up to several minutes."
         )
         batch_size_list = [1, 2, 4] + [i * 8 for i in range(1, 17)]
+        print(f"1 python/sglang/srt/model_executor/model_runner.py init_cuda_graphs self.server_args.enable_torch_compile:{self.server_args.enable_torch_compile}")
+        print(f"2 python/sglang/srt/model_executor/model_runner.py init_cuda_graphs self.server_args.disable_cuda_graph_padding:{self.server_args.disable_cuda_graph_padding}")
         self.cuda_graph_runner = CudaGraphRunner(
             self,
             max_batch_size_to_capture=max(batch_size_list),
@@ -492,6 +494,7 @@ class ModelRunner:
     def forward_decode(self, batch: ScheduleBatch):
         print(f"1 python/sglang/srt/model_executor/model_runner.py forward_decode")
         print(f"2 python/sglang/srt/model_executor/model_runner.py forward_decode and type(self.token_to_kv_pool):{type(self.token_to_kv_pool)}")
+        print(f"3 python/sglang/srt/model_executor/model_runner.py forward_decode and self.cuda_graph_runner.can_run(len(batch.reqs):{self.cuda_graph_runner.can_run(len(batch.reqs))}")
         if self.cuda_graph_runner and self.cuda_graph_runner.can_run(len(batch.reqs)):
             return self.cuda_graph_runner.replay(batch) #T0D0 0919 这里用了cuda graph, 很重要
 
@@ -510,7 +513,7 @@ class ModelRunner:
     @torch.inference_mode()
     def forward_extend(self, batch: ScheduleBatch):
         print(f"1 python/sglang/srt/model_executor/model_runner.py forward_extend")
-        print(f"2 python/sglang/srt/model_executor/model_runner.py forward_extend and type(self.token_to_kv_pool):{type(self.token_to_kv_pool)}")
+        print(f"1.5 python/sglang/srt/model_executor/model_runner.py forward_extend and type(self.token_to_kv_pool):{type(self.token_to_kv_pool)}")
         input_metadata = InputMetadata.from_schedule_batch(
             self,
             batch,
